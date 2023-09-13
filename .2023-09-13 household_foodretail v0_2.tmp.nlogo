@@ -1,4 +1,6 @@
-;; version 0.1 ;;
+;; version 0.2 ;;
+
+extensions [ rnd ]
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; state variables ;;
@@ -15,7 +17,7 @@ undirected-link-breed [family-members family-member]
 
 
 globals [
-  diets
+  diet-list
   ;income-levels
   id-households
   cooked-omnivore
@@ -85,7 +87,7 @@ to setup-seed
 end
 
 to setup-globals
-  set diets ["omnivore" "pescatarian" "vegetarian" "vegan"]
+  set diet-list [ ["omnivore" 0.5] ["pescatarian" 0.4] ["vegetarian" 0.03] ["vegan" 0.02] ] ;QUESTION why can I not refer to the sliders for the weight?
   ;set income-levels ["low" "middle" "high"]
   set id-households 0
   set cooked-omnivore 0
@@ -114,7 +116,8 @@ to setup-persons
     move-to patch-here
     set shape "person"
     set color pink
-    set diet one-of diets
+    ;set diet one-of diets
+    set diet first rnd:weighted-one-of-list diet-list [ [p] -> last p ]
     set is-cook? false
     set meal-i-cooked "none"
     set cooking-skills random-float 1
@@ -166,7 +169,7 @@ to go
   select-group-and-cook
   select-meal
   evaluate-meal
-  ;closure-meals
+  closure-meals
 
   tick
 
@@ -198,36 +201,60 @@ to select-group-and-cook ;household procedure
 end
 
 to select-meal ;person procedure
+  ask persons with [is-cook? = true]  [
 
-ifelse meal-selection = "status-based" [
+    (ifelse meal-selection = "status-based" [
 
-    ;procedure to select status-based a meal
+      ;;procedure to select status-based a meal
 
-    let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-    let dinner-list [ (list who diet status ) ] of my-dinner-guests
-    ;let vip-guest
-    print dinner-list
+      let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
+      let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this version also be himself
+      let vip-meal "none"
+      ask vip-guest [
+        set vip-meal [diet] of self ;ask guest with highest status to select meal
+      ]
+      set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
+      set my-last-dinner vip-meal
 
-  ] [
-    ;meal-selection = "democratic"
-   ;procedure to select meal democratically
+      ;guests store meal they had and cooking skills of cook
+      let my-cooking-skills [cooking-skills] of self
 
-  ]
+      ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+        set my-last-dinner vip-meal
+        set cooks-cooking-skills my-cooking-skills
+      ] ;cook asks his guests to store his cooking skills for evaluation in the next procedure...
 
-  ask persons with [is-cook? = true]  [ ;cook collects food preferences of group
-    let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-    let dinner-list [ (list who diet ) ] of my-dinner-guests
+      ]
+      meal-selection = "democratic" [
 
-      let chosen-meal item 1 (first dinner-list) ;choose for now first diet on the list, so the second item in the first list
-      set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-      set my-last-dinner chosen-meal
+        ;;procedure to select meal democratically
 
-    let my-cooking-skills [cooking-skills] of self
+        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
+        let dinner-list [ (list diet who) ] of my-dinner-guests
 
-    ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-      set my-last-dinner chosen-meal
-      set cooks-cooking-skills my-cooking-skills
-    ]
+      ] [
+
+        ;meal-selection = "random"
+
+        ;;procedure to select meal randomly
+
+        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
+        let dinner-list [ (list who diet ) ] of my-dinner-guests
+
+
+        let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
+        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+        set my-last-dinner chosen-meal
+
+        let my-cooking-skills [cooking-skills] of self
+
+        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+          set my-last-dinner chosen-meal
+          set cooks-cooking-skills my-cooking-skills
+        ]
+      ]
+
+    )
 
   ]
 end
@@ -266,7 +293,7 @@ end
 
 to closure-meals ;person procedure
     ask persons with [is-cook? = true ] [
-    set meal-i-cooked "none"
+    ;set meal-i-cooked "none"
     set is-cook? false
   ]
 end
@@ -320,7 +347,7 @@ initial-nr-persons
 initial-nr-persons
 100
 500
-160.0
+250.0
 10
 1
 NIL
@@ -398,7 +425,7 @@ INPUTBOX
 160
 650
 current-seed
-3.12153736E8
+2.135688249E9
 1
 0
 Number
@@ -444,7 +471,7 @@ distribution of cooking skills
 NIL
 NIL
 0.0
-10.0
+1.0
 0.0
 10.0
 true
@@ -482,8 +509,8 @@ PLOT
 distribution of status
 NIL
 NIL
-0.0
-1.0
+-10.0
+10.0
 0.0
 10.0
 true
@@ -574,8 +601,68 @@ CHOOSER
 436
 meal-selection
 meal-selection
-"status-based" "democratic"
+"status-based" "democratic" "random"
+2
+
+SLIDER
+366
+180
+539
+214
+p-om
+p-om
 0
+1
+0.04
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+367
+224
+540
+258
+p-pe
+p-pe
+0
+1
+0.4
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+368
+265
+541
+299
+p-vt
+p-vt
+0
+1
+0.03
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+366
+307
+539
+341
+p-vn
+p-vn
+0
+1
+0.09
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
