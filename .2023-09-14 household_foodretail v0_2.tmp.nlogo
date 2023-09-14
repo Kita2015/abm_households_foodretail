@@ -12,8 +12,9 @@ breed  [ households household ]
 breed [ foods food ]
 
 ;directed-link-breed [ parents parent ]
-;undirected-link-breed [friends friend ] ;assumption: friendships are mutual experiences
+undirected-link-breed [friends friend ] ;assumption: friendships are mutual experiences
 undirected-link-breed [family-members family-member]
+directed-link-breed [household-members household-member]
 
 
 globals [
@@ -50,6 +51,7 @@ households-own [
   ;income-level
   id ; identifier
   members
+  meal-cooked?
 ]
 
 ;food_outlets-own [
@@ -74,8 +76,9 @@ to setup
   setup-persons
   setup-families
   show-families
+  setup-friendships
   ;setup-food_outlets
-  setup-foods
+  ;setup-foods
   reset-ticks
 end
 
@@ -87,7 +90,7 @@ to setup-seed
 end
 
 to setup-globals
-  set diet-list [ ["omnivore" 0.5] ["pescatarian" 0.4] ["vegetarian" 0.03] ["vegan" 0.02] ] ;QUESTION why can I not refer to the sliders for the weight?
+  set diet-list [ ["meat" 0.5] ["pescatarian" 0.4] ["vegetarian" 0.03] ["vegan" 0.02] ] ;QUESTION why can I not refer to the sliders for the weight?
   ;set income-levels ["low" "middle" "high"]
   set id-households 0
   set cooked-omnivore 0
@@ -102,21 +105,26 @@ to setup-households
   ask households [
     move-to one-of patches with [not any? households-here]
     set shape "house"
-    set color brown
+    set color 37
     set id id-households + 1
     set id-households id-households + 1 ;each households updates the global variable id-households
+                                        ;create household with members
+    let new-family random-normal mean-family-size sd-family-size
+    hatch-persons new-family + 1
+    set meal-cooked? false
+  ]
+
+  ;check: no more than one house per patch
+  ask patches with [count households-here > 1] [
+    error "more than one house on one patch"
   ]
 end
 
 to setup-persons
-  create-persons initial-nr-persons
   ask persons [
     ;set age random-normal 41 25 ; mean and sd are chosen based on Dutch demographic data
-    setxy random-xcor random-ycor
-    move-to patch-here
     set shape "person"
     set color pink
-    ;set diet one-of diets
     set diet first rnd:weighted-one-of-list diet-list [ [p] -> last p ]
     set is-cook? false
     set meal-i-cooked "none"
@@ -131,20 +139,24 @@ to setup-persons
     set cs-veget random-float max-cs-veget
     set cs-vegan random-float max-cs-vegan
   ]
-
 end
 
 to setup-families
-    ask persons [
-    move-to min-one-of households [distance myself] ; persons move to household closest to them
-    set h-id [id] of households-here ; persons set h-id based on id of household ERROR? brackets are copied to h-id ERROR some persons have multiple h-ids
-    let my-family other persons-here ; persons set up a family with the persons in the same household
-    create-family-members-with my-family [set color grey] ; persons create family bonds
-    ]
-
   ask households [
-    set members persons-here
+    set members persons-here  ; households set up a family with the persons on his patch
+
   ]
+
+  ask persons [
+    ;xreate family with household members
+    set h-id first [id] of households-here ; persons set h-id based on id of household
+    let my-family other persons-here ; persons set up a family with the persons in the same household
+    create-family-members-with my-family [set color pink] ; persons create family bonds
+    let my-house households with [id = [h-id] of myself]
+    print my-house
+    create-household-member-from one-of my-house [set color 37]
+  ]
+
 end
 
 to show-families
@@ -154,50 +166,70 @@ to show-families
   ]
 end
 
+to setup-friendships
+  ask persons [
+    let potential-friends other persons
+    let nr-friendships random 2 ;people will create 0 or 1 friends
+    repeat nr-friendships [create-friend-with one-of potential-friends]
+  ]
+end
+
+
 ;to setup-food_outlets
 ;  ;;;
 ;end
 
-to setup-foods
-
-end
+;to setup-foods
+;
+;end
 
 to go
 
   if ticks = 365 [stop]
 
+  closure-meals
   select-group-and-cook
   select-meal
   evaluate-meal
-  closure-meals
+  visualization
+
 
   tick
 
 end
 
-to select-group-and-cook ;household procedure
-  ask households [
-    let dinner-group members  ;gather group for meal - for now this is only the family members, not friends
-    let size-dinner-group count dinner-group
-
-    ifelse size-dinner-group > 0 [
-      let todays-cook one-of dinner-group   ;select cook
-      ask todays-cook [
-        set is-cook? true
-        ifelse cooking-skills < 1 [
-        set cooking-skills cooking-skills + 0.01 ;every time a person becomes a cook, his cooking skills improve a bit
-        ] [
-          set cooking-skills 1
-        ]
-          ask dinner-group [
-          set my-cook self ;setting todays cook for all dinner-group members
-        ]
-      ]
-    ] [
-          ;do nothing - I am an empty house
-    ]
+to closure-meals ;person procedure
+    ask persons with [is-cook? = true ] [
+    set meal-i-cooked "none"
+    set is-cook? false
 
   ]
+  ask households [
+    set meal-cooked? false
+  ]
+end
+
+to select-group-and-cook ;household procedure
+  ask households [
+    if meal-cooked? = true [
+      error "household has cooked already - two cooks possibly"
+    ]
+    let dinner-group members  ;gather group for meal - for now this is only the family members, not friends
+    let size-dinner-group count dinner-group
+    let todays-cook one-of dinner-group   ;select cook
+
+    ask todays-cook [
+      set is-cook? true
+      set cooking-skills max (list 1 (cooking-skills + 0.01))
+    ]
+    ask dinner-group [
+      set my-cook self ;setting todays cook for all dinner-group members
+    ]
+  ]
+  set meal-cooked? true
+
+
+]
 end
 
 to select-meal ;person procedure
@@ -246,11 +278,9 @@ to select-meal ;person procedure
         set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
         set my-last-dinner chosen-meal
 
-        let my-cooking-skills [cooking-skills] of self
-
         ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
           set my-last-dinner chosen-meal
-          set cooks-cooking-skills my-cooking-skills
+          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
         ]
       ]
 
@@ -264,17 +294,17 @@ to evaluate-meal ;person procedure
                  ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality?
   ask persons with [is-cook? = false][
 
-    set last-meals-quality random-normal cooks-cooking-skills random-float 0.1 ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation QUESTION hard-coded sd of meal-quality here, how to find a more transparent solution
+    set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation QUESTION hard-coded sd of meal-quality here, how to find a more transparent solution
     let meal-enjoyment "none" ;temp var
 
     ifelse last-meals-quality < 0.55 [
       set meal-enjoyment "negative"
-      ask my-cook [set status status - 0.01]
+      ask my-cook [set status max (list 1 (status - 0.01))]
 
     ] [
       ;if last-meals-quality => 0.55
       set meal-enjoyment "positive"
-      ask my-cook [set status status + 0.01]
+      ask my-cook [set status max (list 1 (status + 0.01))]
     ]
 
     ifelse meal-enjoyment = "positive" [
@@ -290,13 +320,46 @@ to evaluate-meal ;person procedure
 end
 
 
+to visualization
+  ask persons [
 
-to closure-meals ;person procedure
-    ask persons with [is-cook? = true ] [
-    ;set meal-i-cooked "none"
-    set is-cook? false
+    ;set size according to status
+    (ifelse status <= 0.25 [
+      set size 1
+      ]
+      status > 0.25 and status <= 0.5 [
+        set size 1.2
+      ]
+      status > 0.5 and status <= 0.75 [
+        set size 1.4
+      ]
+      ;if status > 0.75 and <= 1
+      [set size 1.6]
+      )
+
+    ;set label according to cooking skills
+   set label (precision cooking-skills 1)
+    set label-color white
+
+    ;set color according to diet
+    (ifelse diet = "meat" [
+      set color 35
+      ]
+      diet = "pescatarian" [
+        set color 136
+      ]
+      diet = "vegetarian" [
+        set color 44
+      ]
+      ;if status > 0.75 and <= 1
+      [set color 64]
+      )
+
   ]
+
 end
+
+
 
 ;;;;;;;;;;;;;;;
 ;; reporters ;;
@@ -309,7 +372,6 @@ end
 to-report cooking-skills-distribution
   report [cooking-skills] of persons
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 518
@@ -337,21 +399,6 @@ GRAPHICS-WINDOW
 1
 ticks
 30.0
-
-SLIDER
-5
-182
-177
-215
-initial-nr-persons
-initial-nr-persons
-100
-500
-250.0
-10
-1
-NIL
-HORIZONTAL
 
 BUTTON
 12
@@ -391,7 +438,7 @@ SLIDER
 4
 223
 177
-257
+256
 initial-nr-households
 initial-nr-households
 25
@@ -425,7 +472,7 @@ INPUTBOX
 160
 650
 current-seed
-2.135688249E9
+-6.1631437E7
 1
 0
 Number
@@ -457,7 +504,7 @@ true
 true
 "" ""
 PENS
-"everything" 1.0 0 -6459832 true "" "plot count persons with [meal-i-cooked = \"omnivore\"]"
+"meat" 1.0 0 -6459832 true "" "plot count persons with [meal-i-cooked = \"omnivore\"]"
 "fish" 1.0 0 -1664597 true "" "plot count persons with [meal-i-cooked = \"pescatarian\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [meal-i-cooked = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
@@ -496,10 +543,10 @@ true
 true
 "" ""
 PENS
-"everything" 1.0 0 -8431303 true "" "plot count persons with [diet = \"omnivore\"]"
+"meat" 1.0 0 -6459832 true "" "plot count persons with [diet = \"omnivore\"]"
 "fish" 1.0 0 -2064490 true "" "plot count persons with [diet = \"pescatarian\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\"]"
-"vegan" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\"]"
+"vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
 1217
@@ -523,7 +570,7 @@ SLIDER
 188
 182
 361
-216
+215
 max-cs-meat
 max-cs-meat
 0
@@ -538,7 +585,7 @@ SLIDER
 186
 222
 359
-256
+255
 max-cs-fish
 max-cs-fish
 0
@@ -553,7 +600,7 @@ SLIDER
 188
 264
 361
-298
+297
 max-cs-veget
 max-cs-veget
 0
@@ -568,12 +615,12 @@ SLIDER
 188
 304
 361
-338
+337
 max-cs-vegan
 max-cs-vegan
 0
 1
-0.05
+0.08
 0.01
 1
 NIL
@@ -583,7 +630,7 @@ SLIDER
 186
 344
 359
-378
+377
 cs-threshold
 cs-threshold
 0
@@ -598,32 +645,32 @@ CHOOSER
 6
 390
 179
-436
+435
 meal-selection
 meal-selection
 "status-based" "democratic" "random"
-2
+0
 
 SLIDER
-366
-180
-539
-214
+279
+413
+452
+446
 p-om
 p-om
 0
 1
-0.04
+0.49
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-367
-224
-540
-258
+280
+457
+453
+490
 p-pe
 p-pe
 0
@@ -635,10 +682,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-368
-265
-541
-299
+282
+498
+455
+531
 p-vt
 p-vt
 0
@@ -650,15 +697,60 @@ NIL
 HORIZONTAL
 
 SLIDER
-366
-307
-539
-341
+279
+540
+452
+573
 p-vn
 p-vn
 0
 1
-0.09
+0.03
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+140
+183
+174
+mean-family-size
+mean-family-size
+0
+10
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+6
+181
+179
+215
+sd-family-size
+sd-family-size
+0
+2
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+190
+140
+363
+174
+meal-quality-variance
+meal-quality-variance
+0
+0.25
+0.1
 0.01
 1
 NIL
