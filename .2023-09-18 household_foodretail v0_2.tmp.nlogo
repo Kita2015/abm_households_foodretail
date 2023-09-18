@@ -268,7 +268,7 @@ to select-meal ;person procedure
         let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
         let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
         let my-best-cs max list-my-cs-values ;select the best cooking skill
-        let chosen-meal table:get list-my-cs my-best-cs ;u
+        let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
 
         set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
         set my-last-dinner chosen-meal
@@ -286,19 +286,26 @@ to select-meal ;person procedure
         ;;procedure to select meal democratically
 
         let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-        let dinner-list-majority [ (list diet) ] of my-dinner-guests
+        let dinner-list-majority [ (list diet wh) ] of my-dinner-guests
         ;print dinner-list-majority
         let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-        ;print freq-list
+                                                                                        ;print freq-list
         let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
-        ;print dinner-freq-list
+                                                                                       ;print dinner-freq-list
         let count-majority-choice max freq-list ;select the highest count
-        ;print count-majority-choice
+                                                ;print count-majority-choice
         let chosen-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+                                                                              ;print chosen-meal-list
         let chosen-meal first chosen-meal-list ;unpack diet / meal from list
-        print chosen-meal
+                                               ;print chosen-meal
 
+        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+        set my-last-dinner chosen-meal
 
+        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+          set my-last-dinner chosen-meal
+          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+        ]
 
 
       ] [
@@ -328,7 +335,7 @@ end
 
 to evaluate-meal ;person procedure
                  ;if cooking skills of cook are over a certain threshold, the guests (and the cook itself) liked the meal
-                 ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality?
+                 ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality? For now it's frequency of preparing
   ask persons with [is-cook? = false][
 
 
@@ -372,8 +379,11 @@ to visualization
       status > 0.5 and status <= 0.75 [
         set size 1.4
       ]
-      ;if status > 0.75 and <= 1
-      [set size 1.6]
+      status > 0.75 and status <= 1 [
+        set size 1.6
+      ]
+      ;if status exceeds 1
+      [set size 1.8]
       )
 
     ;set label according to cooking skills
@@ -390,8 +400,13 @@ to visualization
       diet = "vegetarian" [
         set color 44 ;green
       ]
-      ;if status > 0.75 and <= 1
-      [set color 64] ;yellow
+      diet = "vegan" [
+      set color 64 ;yellow
+      ]
+      ;if diet is not set or lost
+      [set color 9.9 ;white
+        print "I don't have a diet!"
+      ]
       )
 
   ]
