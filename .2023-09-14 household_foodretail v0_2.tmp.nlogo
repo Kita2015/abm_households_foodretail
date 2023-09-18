@@ -1,6 +1,7 @@
 ;; version 0.2 ;;
 
-extensions [ rnd ]
+extensions [ rnd table ]
+
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; state variables ;;
@@ -21,8 +22,8 @@ globals [
   diet-list
   ;income-levels
   id-households
-  cooked-omnivore
-  cooked-pescatarian
+  cooked-meat
+  cooked-fish
   cooked-vegetarian
   cooked-vegan
 ]
@@ -90,11 +91,12 @@ to setup-seed
 end
 
 to setup-globals
-  set diet-list [ ["meat" 0.5] ["pescatarian" 0.4] ["vegetarian" 0.03] ["vegan" 0.02] ] ;QUESTION why can I not refer to the sliders for the weight?
+
+  set diet-list (list (list "meat" p-me ) (list  "fish" p-fi ) (list "vegetarian" p-vt ) (list "vegan" p-vn ))
   ;set income-levels ["low" "middle" "high"]
   set id-households 0
-  set cooked-omnivore 0
-  set cooked-pescatarian 0
+  set cooked-meat 0
+  set cooked-fish 0
   set cooked-vegetarian 0
   set cooked-vegan 0
 
@@ -110,7 +112,8 @@ to setup-households
     set id-households id-households + 1 ;each households updates the global variable id-households
                                         ;create household with members
     let new-family random-normal mean-family-size sd-family-size
-    hatch-persons new-family + 1
+    let new-family-abs abs new-family
+    hatch-persons new-family-abs + 1
     set meal-cooked? false
   ]
 
@@ -153,7 +156,6 @@ to setup-families
     let my-family other persons-here ; persons set up a family with the persons in the same household
     create-family-members-with my-family [set color pink] ; persons create family bonds
     let my-house households with [id = [h-id] of myself]
-    print my-house
     create-household-member-from one-of my-house [set color 37]
   ]
 
@@ -170,7 +172,7 @@ to setup-friendships
   ask persons [
     let potential-friends other persons
     let nr-friendships random 2 ;people will create 0 or 1 friends
-    repeat nr-friendships [create-friend-with one-of potential-friends]
+    repeat nr-friendships [create-friend-with one-of potential-friends [set color 0]]
   ]
 end
 
@@ -198,7 +200,7 @@ to go
 
 end
 
-to closure-meals ;person procedure
+to closure-meals ;person and household procedure
     ask persons with [is-cook? = true ] [
     set meal-i-cooked "none"
     set is-cook? false
@@ -221,15 +223,15 @@ to select-group-and-cook ;household procedure
     ask todays-cook [
       set is-cook? true
       set cooking-skills max (list 1 (cooking-skills + 0.01))
+
+      ask dinner-group [
+        set my-cook self ;setting todays cook for all dinner-group members
+      ]
     ]
-    ask dinner-group [
-      set my-cook self ;setting todays cook for all dinner-group members
-    ]
+
+    set meal-cooked? true
+
   ]
-  set meal-cooked? true
-
-
-]
 end
 
 to select-meal ;person procedure
@@ -240,7 +242,7 @@ to select-meal ;person procedure
       ;;procedure to select status-based a meal
 
       let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-      let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this version also be himself
+      let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
       let vip-meal "none"
       ask vip-guest [
         set vip-meal [diet] of self ;ask guest with highest status to select meal
@@ -257,12 +259,35 @@ to select-meal ;person procedure
       ] ;cook asks his guests to store his cooking skills for evaluation in the next procedure...
 
       ]
-      meal-selection = "democratic" [
+
+      meal-selection = "skills-based" [
+
+        ;; procedure to select skills-based a meal
+
+        let list-my-cs-names (list "meat" "fish" "vegetarian" "vegan") ;used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
+        let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan)
+        let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names)
+        let my-best-cs max list-my-cs-values
+        let chosen-meal table:get list-my-cs my-best-cs
+
+        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+        set my-last-dinner chosen-meal
+
+        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self
+
+        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+          set my-last-dinner chosen-meal
+          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+        ]
+      ]
+
+      meal-selection = "" [
 
         ;;procedure to select meal democratically
 
         let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-        let dinner-list [ (list diet who) ] of my-dinner-guests
+        let dinner-list [ (list diet) ] of my-dinner-guests
+
 
       ] [
 
@@ -294,7 +319,9 @@ to evaluate-meal ;person procedure
                  ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality?
   ask persons with [is-cook? = false][
 
-    set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation QUESTION hard-coded sd of meal-quality here, how to find a more transparent solution
+
+
+    set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
     let meal-enjoyment "none" ;temp var
 
     ifelse last-meals-quality < 0.55 [
@@ -338,21 +365,21 @@ to visualization
       )
 
     ;set label according to cooking skills
-   set label (precision cooking-skills 1)
-    set label-color white
+;   set label (precision cooking-skills 1)
+;    set label-color white
 
     ;set color according to diet
     (ifelse diet = "meat" [
-      set color 35
+      set color 35 ;brown
       ]
-      diet = "pescatarian" [
-        set color 136
+      diet = "fish" [
+        set color 136 ;pink
       ]
       diet = "vegetarian" [
-        set color 44
+        set color 44 ;green
       ]
       ;if status > 0.75 and <= 1
-      [set color 64]
+      [set color 64] ;yellow
       )
 
   ]
@@ -372,6 +399,10 @@ end
 to-report cooking-skills-distribution
   report [cooking-skills] of persons
 end
+
+;let fish-regeneration (fish-regeneration-factor * fish-stock * (1 - (fish-stock / 1000 ) ) ) ;limited growth
+;    let fish-degeneration (water-pollution * fish-susceptibility) ;Do we show a relationship between water-pollution and fish-stock in the Loopy diagram?
+;    set fish-stock (fish-stock + fish-regeneration - fish-degeneration)
 @#$#@#$#@
 GRAPHICS-WINDOW
 518
@@ -472,7 +503,7 @@ INPUTBOX
 160
 650
 current-seed
--6.1631437E7
+-1.169976653E9
 1
 0
 Number
@@ -484,7 +515,7 @@ SWITCH
 625
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -504,8 +535,8 @@ true
 true
 "" ""
 PENS
-"meat" 1.0 0 -6459832 true "" "plot count persons with [meal-i-cooked = \"omnivore\"]"
-"fish" 1.0 0 -1664597 true "" "plot count persons with [meal-i-cooked = \"pescatarian\"]"
+"meat" 1.0 0 -6459832 true "" "plot count persons with [meal-i-cooked = \"meat\"]"
+"fish" 1.0 0 -1664597 true "" "plot count persons with [meal-i-cooked = \"fish\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [meal-i-cooked = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
 
@@ -518,7 +549,7 @@ distribution of cooking skills
 NIL
 NIL
 0.0
-1.0
+10.0
 0.0
 10.0
 true
@@ -543,8 +574,8 @@ true
 true
 "" ""
 PENS
-"meat" 1.0 0 -6459832 true "" "plot count persons with [diet = \"omnivore\"]"
-"fish" 1.0 0 -2064490 true "" "plot count persons with [diet = \"pescatarian\"]"
+"meat" 1.0 0 -6459832 true "" "plot count persons with [diet = \"meat\"]"
+"fish" 1.0 0 -2064490 true "" "plot count persons with [diet = \"fish\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
@@ -605,7 +636,7 @@ max-cs-veget
 max-cs-veget
 0
 1
-0.25
+0.27
 0.01
 1
 NIL
@@ -648,19 +679,19 @@ CHOOSER
 435
 meal-selection
 meal-selection
-"status-based" "democratic" "random"
-0
+"status-based" "skills-based" "democratic" "random"
+2
 
 SLIDER
 279
 413
 452
 446
-p-om
-p-om
+p-me
+p-me
 0
 1
-0.49
+0.94
 0.01
 1
 NIL
@@ -671,11 +702,11 @@ SLIDER
 457
 453
 490
-p-pe
-p-pe
+p-fi
+p-fi
 0
 1
-0.4
+0.02
 0.01
 1
 NIL
@@ -690,7 +721,7 @@ p-vt
 p-vt
 0
 1
-0.03
+0.02
 0.01
 1
 NIL
@@ -705,7 +736,7 @@ p-vn
 p-vn
 0
 1
-0.03
+0.02
 0.01
 1
 NIL
@@ -715,7 +746,7 @@ SLIDER
 10
 140
 183
-174
+173
 mean-family-size
 mean-family-size
 0
@@ -730,7 +761,7 @@ SLIDER
 6
 181
 179
-215
+214
 sd-family-size
 sd-family-size
 0
@@ -745,12 +776,12 @@ SLIDER
 190
 140
 363
-174
+173
 meal-quality-variance
 meal-quality-variance
 0
 0.25
-0.1
+0.25
 0.01
 1
 NIL
