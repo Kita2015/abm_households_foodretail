@@ -43,6 +43,7 @@ persons-own [
   meal-i-cooked
   my-last-dinner
   last-meals-quality
+  last-meal-enjoyment
   my-cook
   ;egoism
   status
@@ -135,6 +136,7 @@ to setup-persons
     set status random-float 1
     set my-last-dinner "none"
     set last-meals-quality "none"
+    set last-meal-enjoyment "none"
     set cooks-cooking-skills 0
     set my-cook "nobody"
     set cs-meat random-float max-cs-meat
@@ -204,8 +206,17 @@ to closure-meals ;person and household procedure
     ask persons with [is-cook? = true ] [
     set meal-i-cooked "none"
     set is-cook? false
-
   ]
+
+  ask persons with [is-cook? = false ] [
+    set cooks-cooking-skills "none"
+    set last-meal-enjoyment "none"
+  ]
+
+  ask persons [
+    set my-cook "nobody"
+  ]
+
   ask households [
     set meal-cooked? false
   ]
@@ -217,8 +228,7 @@ to select-group-and-cook ;household procedure
       error "household has cooked already - two cooks possibly"
     ]
     let dinner-group members  ;gather group for meal - for now this is only the family members, not friends
-    let size-dinner-group count dinner-group
-    let todays-cook one-of dinner-group   ;select cook
+    let todays-cook one-of dinner-group with [my-cook = "nobody"]  ;select cook
 
     ask todays-cook [
       set is-cook? true
@@ -286,7 +296,7 @@ to select-meal ;person procedure
         ;;procedure to select meal democratically
 
         let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-        let dinner-list-majority [ (list diet wh) ] of my-dinner-guests
+        let dinner-list-majority [ (list diet) ] of my-dinner-guests
         ;print dinner-list-majority
         let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
                                                                                         ;print freq-list
@@ -336,33 +346,74 @@ end
 to evaluate-meal ;person procedure
                  ;if cooking skills of cook are over a certain threshold, the guests (and the cook itself) liked the meal
                  ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality? For now it's frequency of preparing
-  ask persons with [is-cook? = false][
+
+  if meal-evaluation = "quality-based" [
+
+    ask persons with [is-cook? = false][
+
+      set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
 
 
+      (ifelse last-meals-quality < 0.55 [
+        set last-meal-enjoyment "negative"
+        ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
 
-    set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
-    let meal-enjoyment "none" ;temp var
+        ]
+        last-meals-quality >= 0.55 [
+          set last-meal-enjoyment "positive"
+          ask my-cook [set status max (list 1 (status + 0.01))]
+        ]
 
-    ifelse last-meals-quality < 0.55 [
-      set meal-enjoyment "negative"
-      ask my-cook [set status max (list 1 (status - 0.01))]
+        ;if no last-meals-quality was calcualted
+        [print "I was not able to judge my meal!"]
 
-    ] [
-      ;if last-meals-quality => 0.55
-      set meal-enjoyment "positive"
-      ask my-cook [set status max (list 1 (status + 0.01))]
+      )
+
+      ifelse last-meal-enjoyment = "positive" [
+        set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
+      ] [
+        ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
+      ]
+
+
+      ask persons with [is-cook? = true] [
+        ; do nothing for now - in a later version the cook might update status of the dinner guests that liked his food
+      ]
+    ]
     ]
 
-    ifelse meal-enjoyment = "positive" [
-      set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
-    ] [
-      ;do nothing - keep my current preference
+
+
+    if meal-evaluation = "status-based" [
+
+      ask persons with [is-cook? = false][
+
+
+      print my-cook
+      let my-status [status] of myself
+      print my-status
+      let status-of-my-cook [status] of my-cook
+      print status-of-my-cook
+
+        (ifelse my-status < status-of-my-cook [ ;if my cook has a higher status than myself, I will always show gratitude for the meal, even if I don't like it
+        print "my cook has higher status than me"
+        ask my-cook [
+            set status max (list 1 (status + 0.01))
+          ]
+          ]
+         my-status > status-of-my-cook [
+            ask my-cook [
+              set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
+            ]
+          ]
+
+          ;if no input is selected for meal-evaluation, throw error
+          [print "I do not know how to evaluate the meal!"]
+
+        )
+      ]
     ]
 
-    ask persons with [is-cook? = true] [
-      ; do nothing for now - in a later version the cook might update status of the dinner guests that liked his food
-    ]
-  ]
 end
 
 
@@ -534,7 +585,7 @@ INPUTBOX
 160
 650
 current-seed
--1.169976653E9
+-3.26671502E8
 1
 0
 Number
@@ -711,7 +762,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "majority" "random"
-2
+3
 
 SLIDER
 279
@@ -817,6 +868,16 @@ meal-quality-variance
 1
 NIL
 HORIZONTAL
+
+CHOOSER
+5
+440
+144
+485
+meal-evaluation
+meal-evaluation
+"quality-based" "status-based"
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
