@@ -389,8 +389,9 @@ to evaluate-meal ;person procedure
       ask persons with [is-cook? = false][
 
 
+
       print my-cook
-      let my-status [status] of myself
+      let my-status status
       print my-status
       let status-of-my-cook [status] of my-cook
       print status-of-my-cook
