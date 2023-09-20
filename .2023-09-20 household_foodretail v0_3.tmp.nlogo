@@ -45,6 +45,7 @@ persons-own [
   last-meals-quality
   last-meal-enjoyment
   my-cook
+  my-dinner-guests
   ;egoism
   status
   at-home?
@@ -55,6 +56,7 @@ households-own [
   id ; identifier
   members
   meal-cooked?
+  empty-house?
 ]
 
 ;food_outlets-own [
@@ -80,6 +82,7 @@ to setup
   setup-families
   show-families
   setup-friendships
+  visualization
   ;setup-food_outlets
   ;setup-foods
   reset-ticks
@@ -116,12 +119,13 @@ to setup-households
     let new-family random-normal mean-family-size sd-family-size
     let new-family-abs abs new-family
     hatch-persons new-family-abs + 1
+    set empty-house? false
     set meal-cooked? false
   ]
 
   ;check: no more than one house per patch
   ask patches with [count households-here > 1] [
-    error "more than one house on one patch"
+    error "more than one house here!"
   ]
 end
 
@@ -140,6 +144,7 @@ to setup-persons
     set last-meal-enjoyment "none"
     set cooks-cooking-skills 0
     set my-cook "nobody"
+    set my-dinner-guests "nobody"
     set cs-meat random-float max-cs-meat
     set cs-fish random-float max-cs-fish
     set cs-veget random-float max-cs-veget
@@ -175,7 +180,7 @@ end
 to setup-friendships
   ifelse friendships? = true [
     ask persons [
-      let potential-friends other persons
+      let potential-friends other persons with [h-id != [h-id] of myself]
       let nr-friendships random 2 ;people will create 0 or 1 friends
       repeat nr-friendships [create-friend-with one-of potential-friends [set color 9.9]]
     ]
@@ -201,7 +206,7 @@ to go
 
   closure-meals
   select-group-and-cook
-  ;select-meal
+  select-meal
   ;evaluate-meal
   visualization
 
@@ -214,11 +219,20 @@ to closure-meals ;person and household procedure
     ask persons with [is-cook? = true ] [
     set meal-i-cooked "none"
     set is-cook? false
+    set my-dinner-guests "nobody"
   ]
 
   ask persons with [is-cook? = false ] [
     set cooks-cooking-skills "none"
     set last-meal-enjoyment "none"
+  ]
+
+  ask persons with [at-home? = false] [
+    let my-home one-of households with [id = [h-id] of myself]
+    move-to my-home
+    set at-home? true
+    left random 360
+    forward 1
   ]
 
   ask persons [
@@ -227,6 +241,7 @@ to closure-meals ;person and household procedure
 
   ask households [
     set meal-cooked? false
+    set empty-house? false
   ]
 end
 
@@ -236,220 +251,283 @@ to select-group-and-cook ;household procedure
       error "Our household may host two cooks"
     ]
 
-    ifelse friendships? = false [
-      let dinner-group members  ;gather group for meal - for now this is only the family members, not friends
-      let todays-cook one-of dinner-group with [is-cook? = false and my-cook = "nobody"]  ;select cook
-                                                                                          ;print (list who)
+    ;;procedure to select dinner guests and cook if friendships are turned off
+    ifelse friendships? = false [ ;all households have dinner with family members only
+
+
+      let todays-cook one-of members with [is-cook? = false and my-cook = "nobody"]  ;select cook
+                                                                                     ;print (list who)
 
       ask todays-cook [
         set is-cook? true
         set cooking-skills max (list 1 (cooking-skills + 0.01))
+        set my-dinner-guests family-member-neighbors ;gather group for meal - for now this is only the family members, not friends
 
-        ask dinner-group [
+
+        ask my-dinner-guests [
           set my-cook self ;setting todays cook for all dinner-group members
-          ;print (list who my-cook) ;they all print themselves as my-cook
+                           ;print (list who my-cook) ;they all print themselves as my-cook
         ]
       ]
     ]
-    ;friendships? = true
+
+    ;; procedure to select dinner and guests if friendships are turned on ;all household members who are todays-cook and who have friends can invite friends over for dinner
     [
-      let todays-cook one-of members with [is-cook? = false and my-cook = "nobody"] ;select cook
-      let members-eating-at-home members with [at-home? = true]
+      let members-at-home count members with [at-home? = true]
+        ifelse members-at-home = 0  [
+        set empty-house? true
+        ;do not cook a meal in this household today, because no one is home
+      ]
 
-      ask one-of members-eating-at-home [
+      ;if at least 1 members is at home, cook a meal in this household
+      [
+        set meal-cooked? true
+        let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+        ask todays-cook [
 
-        let dinner-friends friend-neighbors
+          set is-cook? true
+          set cooking-skills max (list 1 (cooking-skills + 0.01))
 
-        let dinner-friend one-of dinner-friends
-        ask dinner-friend [
-          set at-home? false
-          print "I am visiting"
+          let nr-dinner-friends count friend-neighbors with [at-home? = true]
+
+
+          ;;if the cook has no friends
+          ifelse nr-dinner-friends = 0 [
+            set my-dinner-guests family-member-neighbors ;do not invite friends because I do not have any
+          ]
+
+          ;;if the cook does have friends
+          ;nr-dinner friends != 0
+          [
+
+            let dinner-friends friend-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+            ask dinner-friends [
+              set at-home? false
+              move-to patch-here
+            ]
+
+            let dinner-members family-member-neighbors with [at-home? = true]
+            set my-dinner-guests (turtle-set dinner-members dinner-friends)
+
+          ]
+
+          ask my-dinner-guests [
+            set my-cook self ;setting todays cook for all dinner-group members
+                             ;print (list who my-cook) ;they all print themselves as my-cook
+          ]
+
         ]
-
-
       ]
 
 
-
-
-
-
-      set meal-cooked? true
-
     ]
+
   ]
+
+
 end
 
 to select-meal ;person procedure
-  ask persons with [is-cook? = true]  [
+ ask households [
+    ifelse empty-house? = true [
+      ;do not run this procedure
+    ]
 
-    (ifelse meal-selection = "status-based" [
+    ;empty-house = false
+    ;run this procedure
+    [
 
-      ;;procedure to select status-based a meal
 
-      let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-      let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
-      let vip-meal "none"
-      ask vip-guest [
-        set vip-meal [diet] of self ;ask guest with highest status to select meal
+      ask persons with [is-cook? = true]  [
+
+        (ifelse meal-selection = "status-based" [
+
+          ;;procedure to select status-based a meal
+
+
+          let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
+          let vip-meal "none"
+          ask vip-guest [
+            set vip-meal [diet] of self ;ask guest with highest status to select meal
+          ]
+          set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
+          set my-last-dinner vip-meal
+
+          ;guests store meal they had and cooking skills of cook
+          let my-cooking-skills [cooking-skills] of self
+
+          ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+            set my-last-dinner vip-meal
+            set cooks-cooking-skills my-cooking-skills
+          ] ;cook asks his guests to store his cooking skills for evaluation in the next procedure...
+
+          ]
+
+          meal-selection = "skills-based" [
+
+            ;; procedure to select skills-based a meal
+
+            let list-my-cs-names (list "meat" "fish" "vegetarian" "vegan") ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
+            let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
+            let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
+            let my-best-cs max list-my-cs-values ;select the best cooking skill
+            let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
+
+            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+            set my-last-dinner chosen-meal
+
+
+
+            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              set my-last-dinner chosen-meal
+              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+            ]
+          ]
+
+          meal-selection = "majority" [
+
+            ;;procedure to select meal democratically
+
+
+            let dinner-list-majority [ (list diet) ] of my-dinner-guests
+
+            let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+                                                                                            ;print freq-list
+            let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
+                                                                                           ;print dinner-freq-list
+            let count-majority-choice max freq-list ;select the highest count
+                                                    ;print count-majority-choice
+            let chosen-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+                                                                                  ;print chosen-meal-list
+            let chosen-meal first chosen-meal-list ;unpack diet / meal from list
+                                                   ;print chosen-meal
+
+            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+            set my-last-dinner chosen-meal
+
+            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              set my-last-dinner chosen-meal
+              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+            ]
+
+
+          ]
+
+          meal-selection = "random" [
+
+            ;;procedure to select meal randomly
+
+
+            let dinner-list [ (list who diet ) ] of my-dinner-guests
+            print dinner-list
+
+
+            let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
+            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+            set my-last-dinner chosen-meal
+
+            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              set my-last-dinner chosen-meal
+              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+            ]
+          ]
+
+          [
+            ;if no meal-selection option has been selected
+            print("We do not know how to select our meal!")
+          ]
+
+        )
+
+
       ]
-      set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
-      set my-last-dinner vip-meal
-
-      ;guests store meal they had and cooking skills of cook
-      let my-cooking-skills [cooking-skills] of self
-
-      ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-        set my-last-dinner vip-meal
-        set cooks-cooking-skills my-cooking-skills
-      ] ;cook asks his guests to store his cooking skills for evaluation in the next procedure...
-
-      ]
-
-      meal-selection = "skills-based" [
-
-        ;; procedure to select skills-based a meal
-
-        let list-my-cs-names (list "meat" "fish" "vegetarian" "vegan") ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
-        let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
-        let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
-        let my-best-cs max list-my-cs-values ;select the best cooking skill
-        let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
-
-        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-        set my-last-dinner chosen-meal
-
-        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self
-
-        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-          set my-last-dinner chosen-meal
-          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-        ]
-      ]
-
-      meal-selection = "majority" [
-
-        ;;procedure to select meal democratically
-
-        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-        let dinner-list-majority [ (list diet) ] of my-dinner-guests
-        ;print dinner-list-majority
-        let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-                                                                                        ;print freq-list
-        let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
-                                                                                       ;print dinner-freq-list
-        let count-majority-choice max freq-list ;select the highest count
-                                                ;print count-majority-choice
-        let chosen-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
-                                                                              ;print chosen-meal-list
-        let chosen-meal first chosen-meal-list ;unpack diet / meal from list
-                                               ;print chosen-meal
-
-        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-        set my-last-dinner chosen-meal
-
-        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-          set my-last-dinner chosen-meal
-          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-        ]
-
-
-      ] [
-
-        ;meal-selection = "random"
-
-        ;;procedure to select meal randomly
-
-        let my-dinner-guests persons with [h-id = [h-id] of myself] ;creates group of guests for dinner including self QUESTION how to create agentset based on undirected links?
-        let dinner-list [ (list who diet ) ] of my-dinner-guests
-
-
-        let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
-        set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-        set my-last-dinner chosen-meal
-
-        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-          set my-last-dinner chosen-meal
-          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-        ]
-      ]
-
-    )
-
+    ]
   ]
+
 end
 
 to evaluate-meal ;person procedure
                  ;if cooking skills of cook are over a certain threshold, the guests (and the cook itself) liked the meal
                  ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality? For now it's frequency of preparing
 
-  if meal-evaluation = "quality-based" [
-
-    ask persons with [is-cook? = false][
-
-      set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
-
-
-      (ifelse last-meals-quality < 0.55 [
-        set last-meal-enjoyment "negative"
-        ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
-
-        ]
-        last-meals-quality >= 0.55 [
-          set last-meal-enjoyment "positive"
-          ask my-cook [set status max (list 1 (status + 0.01))]
-        ]
-
-        ;if no last-meals-quality was calcualted
-        [print "I was not able to judge my meal!"]
-
-      )
-
-      ifelse last-meal-enjoyment = "positive" [
-        set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
-      ] [
-        ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
-      ]
-
-
-      ask persons with [is-cook? = true] [
-        ; do nothing for now - in a later version the cook might update status of the dinner guests that liked his food
-      ]
-    ]
+  ask households [
+    ifelse empty-house? = true [
+      ;do not run this procedure
     ]
 
+    ;empty-house = false
+    ;run this procedure
+    [
+
+      if meal-evaluation = "quality-based" [
+
+        ask persons with [is-cook? = false][
+
+          set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
 
 
-    if meal-evaluation = "status-based" [
+          (ifelse last-meals-quality < 0.55 [
+            set last-meal-enjoyment "negative"
+            ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
 
-      ask persons with [is-cook? = false][
-
-
-
-      print my-cook
-      let my-status status
-      print my-status
-      let status-of-my-cook [status] of my-cook
-      print status-of-my-cook
-
-        (ifelse my-status < status-of-my-cook [ ;if my cook has a higher status than myself, I will always show gratitude for the meal, even if I don't like it
-        print "my cook has higher status than me"
-        ask my-cook [
-            set status max (list 1 (status + 0.01))
-          ]
-          ]
-         my-status > status-of-my-cook [
-            ask my-cook [
-              set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
             ]
+            last-meals-quality >= 0.55 [
+              set last-meal-enjoyment "positive"
+              ask my-cook [set status max (list 1 (status + 0.01))]
+            ]
+
+            ;if no last-meals-quality was calcualted
+            [print "I was not able to judge my meal!"]
+
+          )
+
+          ifelse last-meal-enjoyment = "positive" [
+            set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
+          ] [
+            ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
           ]
 
-          ;if no input is selected for meal-evaluation, throw error
-          [print "I do not know how to evaluate the meal!"]
 
-        )
+          ask persons with [is-cook? = true] [
+            ; do nothing for now - in a later version the cook might update status of the dinner guests that liked his food
+          ]
+        ]
+      ]
+
+
+
+      if meal-evaluation = "status-based" [
+
+        ask persons with [is-cook? = false][
+
+
+
+
+          let my-status status
+
+          let status-of-my-cook [status] of my-cook
+
+
+          (ifelse my-status < status-of-my-cook [ ;if my cook has a higher status than myself, I will always show gratitude for the meal, even if I don't like it
+            print "my cook has higher status than me"
+            ask my-cook [
+              set status max (list 1 (status + 0.01))
+            ]
+            ]
+            my-status > status-of-my-cook [
+              ask my-cook [
+                set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
+              ]
+            ]
+
+            ;if no input is selected for meal-evaluation, throw error
+            [print "I do not know how to evaluate the meal!"]
+
+          )
+        ]
       ]
     ]
+  ]
 
 end
 
@@ -593,7 +671,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-11.0
+51.0
 5
 1
 NIL
@@ -622,7 +700,7 @@ INPUTBOX
 160
 650
 current-seed
--3.26671502E8
+-1.463112878E9
 1
 0
 Number
