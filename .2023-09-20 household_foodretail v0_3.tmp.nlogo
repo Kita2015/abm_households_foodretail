@@ -207,7 +207,7 @@ to go
   closure-meals
   select-group-and-cook
   select-meal
-  ;evaluate-meal
+  evaluate-meal
   visualization
 
 
@@ -216,7 +216,7 @@ to go
 end
 
 to closure-meals ;person and household procedure
-    ask persons with [is-cook? = true ] [
+  ask persons with [is-cook? = true ] [
     set meal-i-cooked "none"
     set is-cook? false
     set my-dinner-guests "nobody"
@@ -248,25 +248,27 @@ end
 to select-group-and-cook ;household procedure
   ask households [
     if meal-cooked? = true [
-      error "Our household may host two cooks"
+      error "Our household is hosting two cooks"
     ]
 
     ;;procedure to select dinner guests and cook if friendships are turned off
     ifelse friendships? = false [ ;all households have dinner with family members only
 
 
-      let todays-cook one-of members with [is-cook? = false and my-cook = "nobody"]  ;select cook
-                                                                                     ;print (list who)
+      let todays-cook one-of members with [is-cook? = false]  ;select cook
+      let todays-dinner-guests members
+      ;print (list who)
 
       ask todays-cook [
         set is-cook? true
         set cooking-skills max (list 1 (cooking-skills + 0.01))
-        set my-dinner-guests family-member-neighbors ;gather group for meal - for now this is only the family members, not friends
+        set my-dinner-guests todays-dinner-guests ;gather group for meal - for now this is only the family members, not friends
+
 
 
         ask my-dinner-guests [
-          set my-cook self ;setting todays cook for all dinner-group members
-                           ;print (list who my-cook) ;they all print themselves as my-cook
+          set my-cook todays-cook ;setting todays cook for all dinner-group members
+                                  ;print (list who my-cook) ;they all print themselves as my-cook
         ]
       ]
     ]
@@ -274,15 +276,17 @@ to select-group-and-cook ;household procedure
     ;; procedure to select dinner and guests if friendships are turned on ;all household members who are todays-cook and who have friends can invite friends over for dinner
     [
       let members-at-home count members with [at-home? = true]
-        ifelse members-at-home = 0  [
+      ifelse members-at-home = 0  [
         set empty-house? true
         ;do not cook a meal in this household today, because no one is home
       ]
 
-      ;if at least 1 members is at home, cook a meal in this household
+      ;if at least 1 member is at home, cook a meal in this household
       [
         set meal-cooked? true
         let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+        let todays-dinner-guests members
+
         ask todays-cook [
 
           set is-cook? true
@@ -293,7 +297,7 @@ to select-group-and-cook ;household procedure
 
           ;;if the cook has no friends
           ifelse nr-dinner-friends = 0 [
-            set my-dinner-guests family-member-neighbors ;do not invite friends because I do not have any
+            set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
           ]
 
           ;;if the cook does have friends
@@ -307,13 +311,13 @@ to select-group-and-cook ;household procedure
             ]
 
             let dinner-members family-member-neighbors with [at-home? = true]
-            set my-dinner-guests (turtle-set dinner-members dinner-friends)
+            set my-dinner-guests (turtle-set dinner-members dinner-friends self)
 
           ]
 
           ask my-dinner-guests [
-            set my-cook self ;setting todays cook for all dinner-group members
-                             ;print (list who my-cook) ;they all print themselves as my-cook
+            set my-cook todays-cook ;setting todays cook for all dinner-group members
+                                    ;print (list who my-cook) ;they all print themselves as my-cook
           ]
 
         ]
@@ -324,11 +328,16 @@ to select-group-and-cook ;household procedure
 
   ]
 
-
+  ask persons with [is-cook? = true] [
+    let nr-of-dinner-guests count my-dinner-guests
+    if nr-of-dinner-guests = 0 [
+      error "I have an empty guest list!"
+    ]
+  ]
 end
 
 to select-meal ;person procedure
- ask households [
+  ask households [
     ifelse empty-house? = true [
       ;do not run this procedure
     ]
@@ -419,7 +428,7 @@ to select-meal ;person procedure
 
 
             let dinner-list [ (list who diet ) ] of my-dinner-guests
-            print dinner-list
+            ;print dinner-list
 
 
             let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
@@ -446,9 +455,7 @@ to select-meal ;person procedure
 
 end
 
-to evaluate-meal ;person procedure
-                 ;if cooking skills of cook are over a certain threshold, the guests (and the cook itself) liked the meal
-                 ;QUESTION how will cooks update their cooking skills: based on frequency of preparing the same meal, based on meal-quality? For now it's frequency of preparing
+to evaluate-meal
 
   ask households [
     ifelse empty-house? = true [
@@ -459,20 +466,43 @@ to evaluate-meal ;person procedure
     ;run this procedure
     [
 
+
+      ;set the meal evaluation
+      ask persons [
+
+        set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
+
+        (ifelse last-meals-quality < 0.55 [
+          set last-meal-enjoyment "negative"
+          ]
+          last-meals-quality >= 0.55 [
+            set last-meal-enjoyment "positive"
+          ]
+          ;if no meal evaluation took place
+          [print "I did not evaluate the meal I just had!"]
+        )
+
+
+        ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
+        ifelse last-meal-enjoyment = "positive" [
+          set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
+        ] [
+          ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
+        ]
+      ]
+
+
+      ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
       if meal-evaluation = "quality-based" [
 
         ask persons with [is-cook? = false][
 
           set last-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
 
-
-          (ifelse last-meals-quality < 0.55 [
-            set last-meal-enjoyment "negative"
+          (ifelse last-meal-enjoyment = "negative" [
             ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
-
             ]
-            last-meals-quality >= 0.55 [
-              set last-meal-enjoyment "positive"
+            last-meal-enjoyment = "positive" [
               ask my-cook [set status max (list 1 (status + 0.01))]
             ]
 
@@ -481,35 +511,21 @@ to evaluate-meal ;person procedure
 
           )
 
-          ifelse last-meal-enjoyment = "positive" [
-            set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
-          ] [
-            ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
-          ]
-
-
-          ask persons with [is-cook? = true] [
-            ; do nothing for now - in a later version the cook might update status of the dinner guests that liked his food
-          ]
         ]
       ]
 
 
-
+      ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
+      ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
       if meal-evaluation = "status-based" [
 
+        ;dinner guests distribute status
         ask persons with [is-cook? = false][
 
-
-
-
           let my-status status
-
           let status-of-my-cook [status] of my-cook
 
-
           (ifelse my-status < status-of-my-cook [ ;if my cook has a higher status than myself, I will always show gratitude for the meal, even if I don't like it
-            print "my cook has higher status than me"
             ask my-cook [
               set status max (list 1 (status + 0.01))
             ]
@@ -525,9 +541,37 @@ to evaluate-meal ;person procedure
 
           )
         ]
+
+        ;cooks distribute status
+        ask persons with [is-cook? = true][
+          let cooks-status status
+          ask my-dinner-guests with [is-cook? = false] [
+
+            (ifelse last-meal-enjoyment = "positive" [
+              set status max (list 1 (status + 0.01))
+              ]
+
+              last-meal-enjoyment = "negative" and cooks-status > status [
+                ;print "my status is being reduced because I did not like the meal"
+                set status max (list 1 (status - 0.02))
+              ]
+
+              last-meal-enjoyment = "negative" and cooks-status < status [
+                ;print "my status is being increased because I am considered important by the cook"
+                set status max (list 1 (status + 0.01))
+              ]
+
+              ;if no last-meal-enjoyment, meaning the person did not have dinner
+              [print "I do not have an opinion about the last meal I !"]
+
+            )
+
+          ]
+        ]
       ]
     ]
   ]
+
 
 end
 
@@ -550,11 +594,11 @@ to visualization
       ]
       ;if status exceeds 1
       [set size 1.8]
-      )
+    )
 
     ;set label according to cooking skills
-;   set label (precision cooking-skills 1)
-;    set label-color white
+    set label (precision cooking-skills 1)
+    set label-color white
 
     ;set color according to diet
     (ifelse diet = "meat" [
@@ -567,13 +611,13 @@ to visualization
         set color 44 ;green
       ]
       diet = "vegan" [
-      set color 64 ;yellow
+        set color 64 ;yellow
       ]
       ;if diet is not set or lost
       [set color 9.9 ;white
         print "I don't have a diet!"
       ]
-      )
+    )
 
   ]
 
@@ -597,14 +641,15 @@ to-report frequency [x freq-list]
   report reduce [ [occurrence-count next-item] -> ifelse-value (next-item = x) [occurrence-count + 1] [occurrence-count] ] (fput 0 freq-list)
 end
 
+
 ;let fish-regeneration (fish-regeneration-factor * fish-stock * (1 - (fish-stock / 1000 ) ) ) ;limited growth
 ;    let fish-degeneration (water-pollution * fish-susceptibility) ;Do we show a relationship between water-pollution and fish-stock in the Loopy diagram?
 ;    set fish-stock (fish-stock + fish-regeneration - fish-degeneration)
 @#$#@#$#@
 GRAPHICS-WINDOW
-518
+377
 10
-1205
+1064
 698
 -1
 -1
@@ -671,7 +716,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-51.0
+6.0
 5
 1
 NIL
@@ -695,32 +740,32 @@ NIL
 1
 
 INPUTBOX
-5
-590
-160
-650
+3
+626
+158
+686
 current-seed
--1.463112878E9
+1.100034004E9
 1
 0
 Number
 
 SWITCH
-172
-592
-285
-625
+170
+628
+283
+661
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
 PLOT
-1214
+1071
 12
-1672
-258
+1421
+255
 meals cooked
 NIL
 NIL
@@ -729,7 +774,7 @@ NIL
 0.0
 10.0
 true
-true
+false
 "" ""
 PENS
 "meat" 1.0 0 -6459832 true "" "plot count persons with [meal-i-cooked = \"meat\"]"
@@ -738,10 +783,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
 
 PLOT
-1457
-497
-1669
-695
+1274
+503
+1497
+699
 distribution of cooking skills
 NIL
 NIL
@@ -756,10 +801,10 @@ PENS
 "skills" 0.1 1 -16777216 true "" "histogram(cooking-skills-distribution)"
 
 PLOT
-1215
-265
-1669
-491
+1072
+262
+1422
+496
 dietary preferences
 NIL
 NIL
@@ -768,7 +813,7 @@ NIL
 0.0
 10.0
 true
-true
+false
 "" ""
 PENS
 "meat" 1.0 0 -6459832 true "" "plot count persons with [diet = \"meat\"]"
@@ -777,10 +822,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1217
-500
-1445
-696
+1500
+503
+1728
+699
 distribution of status
 NIL
 NIL
@@ -795,10 +840,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 SLIDER
-188
-182
-361
-215
+192
+138
+365
+171
 max-cs-meat
 max-cs-meat
 0
@@ -810,10 +855,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-186
-222
-359
-255
+190
+178
+363
+211
 max-cs-fish
 max-cs-fish
 0
@@ -825,25 +870,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-188
-264
-361
-297
+192
+220
+365
+253
 max-cs-veget
 max-cs-veget
 0
 1
-0.27
+0.56
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-188
-304
-361
-337
+192
+260
+365
+293
 max-cs-vegan
 max-cs-vegan
 0
@@ -854,36 +899,21 @@ max-cs-vegan
 NIL
 HORIZONTAL
 
-SLIDER
-186
-344
-359
-377
-cs-threshold
-cs-threshold
-0
-1
-0.5
-0.01
-1
-NIL
-HORIZONTAL
-
 CHOOSER
-6
-390
-179
-435
+13
+519
+153
+564
 meal-selection
 meal-selection
 "status-based" "skills-based" "majority" "random"
 3
 
 SLIDER
-279
-413
-452
-446
+191
+342
+364
+375
 p-me
 p-me
 0
@@ -895,10 +925,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-280
-457
-453
-490
+192
+385
+365
+418
 p-fi
 p-fi
 0
@@ -910,10 +940,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-282
-498
-455
-531
+194
+426
+367
+459
 p-vt
 p-vt
 0
@@ -925,10 +955,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-279
-540
-452
-573
+191
+468
+364
+501
 p-vn
 p-vn
 0
@@ -948,7 +978,7 @@ mean-family-size
 mean-family-size
 0
 10
-3.0
+2.0
 1
 1
 NIL
@@ -970,40 +1000,129 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-140
-363
-173
+2
+266
+175
+299
 meal-quality-variance
 meal-quality-variance
 0
-0.25
-0.25
+0.5
+0.5
 0.01
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-5
-440
-144
-485
+12
+569
+151
+614
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-0
+1
 
 SWITCH
-9
-310
-122
-344
+166
+521
+279
+554
 friendships?
 friendships?
-0
+1
 1
 -1000
+
+TEXTBOX
+15
+63
+152
+127
+LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
+10
+0.0
+1
+
+PLOT
+1072
+504
+1271
+699
+Persons in or out 
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"in" 1.0 0 -16777216 true "" "plot count persons with [at-home? = true]"
+"out" 1.0 0 -4539718 true "" "plot count persons with [at-home? = false]"
+
+SLIDER
+3
+340
+175
+373
+p-me-cons
+p-me-cons
+0
+1
+0.8
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2
+382
+174
+415
+p-fi-cons
+p-fi-cons
+0
+1
+0.2
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1
+426
+173
+459
+p-vt-cons
+p-vt-cons
+0
+1
+0.05
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2
+472
+174
+505
+p-vn-cons
+p-vn-cons
+0
+1
+0.05
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
