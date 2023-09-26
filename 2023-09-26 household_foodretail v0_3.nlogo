@@ -1,4 +1,4 @@
-;; version 0. ;;
+;; version 0.3 ;;
 
 extensions [ rnd table ]
 
@@ -248,6 +248,20 @@ to closure-meals ;person and household procedure
 end
 
 to select-group-and-cook ;household procedure
+
+    ask households [
+    let diets-members [ (list diet) ] of members
+    let freq-list map [ i -> frequency I diets-members] diets-members ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+    print freq-list
+    let diets-members-freq-list table:from-list (map list freq-list diets-members) ;creates a table with the frequency for each diet on the dinner-list majority
+    let n sum map [ [i] -> count i ] freq-list
+    print n
+
+
+
+
+  ]
+
   ask households [
     if meal-cooked? = true [
       error "Our household is hosting two cooks"
@@ -664,14 +678,16 @@ to-report cooking-skills-distribution
   report [cooking-skills] of persons
 end
 
+to-report diet-variance
+
+
+
+
+end
+
 to-report frequency [x freq-list]
   report reduce [ [occurrence-count next-item] -> ifelse-value (next-item = x) [occurrence-count + 1] [occurrence-count] ] (fput 0 freq-list)
 end
-
-
-;let fish-regeneration (fish-regeneration-factor * fish-stock * (1 - (fish-stock / 1000 ) ) ) ;limited growth
-;    let fish-degeneration (water-pollution * fish-susceptibility) ;Do we show a relationship between water-pollution and fish-stock in the Loopy diagram?
-;    set fish-stock (fish-stock + fish-regeneration - fish-degeneration)
 @#$#@#$#@
 GRAPHICS-WINDOW
 377
@@ -810,10 +826,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
 
 PLOT
-1274
-503
-1497
-699
+1074
+504
+1297
+700
 distribution of cooking skills
 NIL
 NIL
@@ -849,10 +865,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1500
-503
-1728
-699
+1300
+504
+1528
+700
 distribution of status
 NIL
 NIL
@@ -934,7 +950,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "random"
-2
+3
 
 SLIDER
 191
@@ -1049,7 +1065,7 @@ CHOOSER
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-0
+1
 
 SWITCH
 166
@@ -1073,10 +1089,10 @@ LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 1
 
 PLOT
-1072
-504
-1271
-699
+1430
+12
+1630
+258
 Persons in or out 
 NIL
 NIL
@@ -1100,7 +1116,7 @@ p-me-cons
 p-me-cons
 0
 1
-0.8
+0.3
 0.01
 1
 NIL
@@ -1115,7 +1131,7 @@ p-fi-cons
 p-fi-cons
 0
 1
-0.2
+0.04
 0.01
 1
 NIL
@@ -1130,7 +1146,7 @@ p-vt-cons
 p-vt-cons
 0
 1
-0.05
+0.59
 0.01
 1
 NIL
@@ -1145,7 +1161,7 @@ p-vn-cons
 p-vn-cons
 0
 1
-0.05
+0.07
 0.01
 1
 NIL
@@ -1156,7 +1172,7 @@ TEXTBOX
 309
 179
 334
-Data-based consumption of protein sources
+Data-based consumption of protein sources (kcal/person/day)
 10
 0.0
 1
