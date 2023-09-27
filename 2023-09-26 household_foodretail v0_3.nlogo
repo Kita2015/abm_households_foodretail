@@ -19,7 +19,8 @@ directed-link-breed [household-members household-member]
 
 
 globals [
-  diet-list
+  diet-list ;weighted list of diets
+  diets-list ;list with only diets
   ;income-levels
   id-households
   cooked-meat
@@ -46,6 +47,7 @@ persons-own [
   last-meal-enjoyment
   my-cook
   my-dinner-guests
+  network-diet-diversity
   ;egoism
   status
   at-home?
@@ -57,6 +59,7 @@ households-own [
   members
   meal-cooked?
   empty-house?
+  diet-diversity
 ]
 
 ;food_outlets-own [
@@ -98,6 +101,7 @@ end
 to setup-globals
 
   set diet-list (list (list "meat" p-me ) (list  "fish" p-fi ) (list "vegetarian" p-vt ) (list "vegan" p-vn ))
+  set diets-list (list "meat" "fish" "vegetarian" "vegan")
   ;set income-levels ["low" "middle" "high"]
   set id-households 0
   set cooked-meat 0
@@ -121,6 +125,7 @@ to setup-households
     hatch-persons new-family-abs + 1
     set empty-house? false
     set meal-cooked? false
+    set diet-diversity 0
   ]
 
   ;check: no more than one house per patch
@@ -142,6 +147,7 @@ to setup-persons
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
+    set network-diet-diversity 0
     set cooks-cooking-skills 0
     set my-cook "nobody"
     set my-dinner-guests "nobody"
@@ -239,29 +245,28 @@ to closure-meals ;person and household procedure
     set my-cook "nobody"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
+
+    let dinner-friends friend-neighbors
+    let dinner-members family-member-neighbors
+    let network-members (turtle-set dinner-friends dinner-members self)
+    let diets-network [ (list diet) ] of network-members
+    let unique-diets-network remove-duplicates diets-network
+    let count-diets-network length(unique-diets-network)
+    set network-diet-diversity count-diets-network
   ]
 
   ask households [
     set meal-cooked? false
     set empty-house? false
+    let diets-members [ (list diet) ] of members
+    let unique-diets remove-duplicates diets-members
+    let count-diets length(unique-diets)
+    set diet-diversity count-diets
   ]
+
 end
 
 to select-group-and-cook ;household procedure
-
-    ask households [
-    let diets-members [ (list diet) ] of members
-    let freq-list map [ i -> frequency I diets-members] diets-members ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-    print freq-list
-    let diets-members-freq-list table:from-list (map list freq-list diets-members) ;creates a table with the frequency for each diet on the dinner-list majority
-    let n sum map [ [i] -> count i ] freq-list
-    print n
-
-
-
-
-  ]
-
   ask households [
     if meal-cooked? = true [
       error "Our household is hosting two cooks"
@@ -332,7 +337,7 @@ to select-group-and-cook ;household procedure
 
           ask my-dinner-guests [
             set my-cook todays-cook ;setting todays cook for all dinner-group members
-                                    ;print (list who my-cook) ;they all print themselves as my-cook
+
           ]
 
         ]
@@ -391,7 +396,7 @@ to select-meal ;person procedure
 
             ;; procedure to select skills-based a meal
 
-            let list-my-cs-names (list "meat" "fish" "vegetarian" "vegan") ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
+            let list-my-cs-names diets-list ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
             let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
             let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
             let my-best-cs max list-my-cs-values ;select the best cooking skill
@@ -431,18 +436,29 @@ to select-meal ;person procedure
 
 
             let dinner-list-majority [ (list diet) ] of my-dinner-guests
-
             let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-                                                                                            ;print freq-list
             let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
-                                                                                           ;print dinner-freq-list
             let count-majority-choice max freq-list ;select the highest count
-                                                    ;print count-majority-choice
-            let chosen-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
-                                                                                  ;print chosen-meal-list
-            let chosen-meal first chosen-meal-list ;unpack diet / meal from list
-                                                   ;print chosen-meal
+            let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+            let majority-meal first majority-meal-list ;unpack diet / meal from list
 
+
+            set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
+            set my-last-dinner majority-meal
+
+            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              set my-last-dinner majority-meal
+              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+            ]
+
+
+          ]
+
+                    meal-selection = "random" [
+
+            ;;procedure to select meal randomly
+
+            let chosen-meal one-of diets-list ;choose random item from the list with diets
             set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
             set my-last-dinner chosen-meal
 
@@ -450,19 +466,14 @@ to select-meal ;person procedure
               set my-last-dinner chosen-meal
               set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
             ]
-
-
           ]
 
-          meal-selection = "random" [
+          meal-selection = "norm-random" [
 
-            ;;procedure to select meal randomly
+            ;;procedure to select meal randomly from the dietary preferences of the dinner guests
 
 
             let dinner-list [ (list who diet ) ] of my-dinner-guests
-            ;print dinner-list
-
-
             let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
             set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
             set my-last-dinner chosen-meal
@@ -473,9 +484,108 @@ to select-meal ;person procedure
             ]
           ]
 
+          meal-selection = "culture" [
+
+            ;;procedure to select meal based on the cultural dimension of individualism - collectivism - this procedure expands the majority-select-meal procedure
+
+            ;determine majority meal
+            let dinner-list-majority [ (list diet) ] of my-dinner-guests
+            let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+            let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
+            let count-majority-choice max freq-list ;select the highest count
+            let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+            let majority-meal first majority-meal-list ;unpack diet / meal from list
+
+            ;determine minority meal
+            let count-minority-choice min freq-list ;check the minority preference
+            let minority-meal-list table:get dinner-freq-list count-minority-choice
+            let minority-meal first minority-meal-list ;QUESTION: what if two minority meals are present in the household? When printing it always seems to be only one meal
+
+            (ifelse majority-meal = minority-meal [ ;meaning only one meal was on the diet list, so no choice needs to be made
+              set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
+              set my-last-dinner majority-meal
+
+              ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              set my-last-dinner majority-meal
+              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+            ]
+
+              ]
+
+              majority-meal != minority-meal [
+
+                ;depending on cultural value of collectivism a minority meal will be cooked
+                let a random-float 1
+
+
+
+                (ifelse a > collectivism-dim [  ;if a is larger than c-dim, then collectivism wins and: individual opinions are not appreciated / catered to), everyone will eat what the majority eats
+
+                  set meal-i-cooked majority-meal   ;cook prepares majority meal
+                  set my-last-dinner majority-meal
+
+                  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+                    set my-last-dinner majority-meal
+                    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+                  ]
+                  ]
+
+                  a <= collectivism-dim [ ;if a is smaller than c-dim, then individualism wins, and an individual can voice his dietary opinion and be catered to
+
+                    ;ask majority and minority people to set their meal accordingly. QUESTION: how to deal with two meals are cooked?
+
+                    ask my-dinner-guests [ ;cook asks his guests to set last meal(s) to the one(s) he cooked
+
+                      (ifelse diet = majority-meal [
+                        set my-last-dinner majority-meal
+
+                        ]
+
+                        diet = minority-meal [
+                          set my-last-dinner minority-meal
+                        ]
+
+                        ;if the dinner-guest had neither the minority nor the majority meal as his diet, he can opt for either
+                        [let b random-float 1
+                          (ifelse b < 0.5 [
+                            set my-last-dinner minority-meal
+                            ]
+                            b >= 0.5 [
+                            set my-last-dinner majority-meal
+                            ]
+
+                            ;if no probability has been calculated and the dinner-guest cannot chose his meal
+                            [print (list who "I cannot chose which meal to eat")]
+                            )
+                        ]
+
+                        )
+
+                      set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+
+                    ]
+                  ]
+
+                  ;if no comparision between a and collectivism-dim is made
+                  [print (list who "We do not know our collectivism-value")]
+
+                )
+
+              ]
+
+              ;no comparision betwee minority and majority meal is made
+              [print (list who "We did not compare minority and majority meals")]
+
+            )
+
+
+
+
+          ]
+
           [
             ;if no meal-selection option has been selected
-            print("We do not know how to select our meal!")
+            print(list who "We do not know how to select our meal!")
           ]
 
         )
@@ -502,7 +612,7 @@ to evaluate-meal
       ;set the meal evaluation
       ask persons with [is-cook? = true][
         let my-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
-        ;print (list who my-meals-quality is-cook?)
+                                                                                      ;print (list who my-meals-quality is-cook?)
         ask my-dinner-guests [
           set last-meals-quality my-meals-quality
           ;print (list who last-meals-quality is-cook?)
@@ -532,85 +642,85 @@ to evaluate-meal
       ]
     ]
 
-      ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
-      if meal-evaluation = "quality-based" [
+    ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
+    if meal-evaluation = "quality-based" [
 
-        ask persons with [is-cook? = false][
+      ask persons with [is-cook? = false][
 
-          (ifelse last-meal-enjoyment = "negative" [
-            ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
+        (ifelse last-meal-enjoyment = "negative" [
+          ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
+          ]
+          last-meal-enjoyment = "positive" [
+            ask my-cook [set status max (list 1 (status + 0.01))]
+          ]
+
+          ;if no last-meals-quality was calcualted
+          [print "I was not able to judge my meal!"]
+
+        )
+
+      ]
+    ]
+
+
+    ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
+    ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
+    if meal-evaluation = "status-based" [
+
+      ;dinner guests distribute status
+      ask persons with [is-cook? = false][
+
+        let my-status status
+        let status-of-my-cook [status] of my-cook
+        ;print (list who my-status my-cook status-of-my-cook)
+
+        (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
+          ask my-cook [
+            ;print "my status is being increased because my dinner guests liked what I cooked for them"
+            set status max (list 1 (status + 0.01))
+          ]
+          ]
+          my-status > status-of-my-cook [
+            ask my-cook [
+              ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
+              set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
             ]
-            last-meal-enjoyment = "positive" [
-              ask my-cook [set status max (list 1 (status + 0.01))]
-            ]
+          ]
 
-            ;if no last-meals-quality was calcualted
-            [print "I was not able to judge my meal!"]
+          ;if no input is selected for meal-evaluation, throw error
+          [print (list who "I do not know how to evaluate the meal!")]
 
-          )
-
-        ]
+        )
       ]
 
+      ;cooks distribute status
+      ask persons with [is-cook? = true][
+        let cooks-status status
+        ask my-dinner-guests with [is-cook? = false] [
 
-      ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
-      ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
-      if meal-evaluation = "status-based" [
+          (ifelse last-meal-enjoyment = "positive" [
+            set status max (list 1 (status + 0.01))
+            ]
 
-        ;dinner guests distribute status
-        ask persons with [is-cook? = false][
+            last-meal-enjoyment = "negative" and cooks-status > status [
+              ;print "my status is being reduced because I did not like the meal"
+              set status max (list 1 (status - 0.02))
+            ]
 
-          let my-status status
-          let status-of-my-cook [status] of my-cook
-          ;print (list who my-status my-cook status-of-my-cook)
-
-          (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
-            ask my-cook [
-              ;print "my status is being increased because my dinner guests liked what I cooked for them"
+            last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
+                                                                                                    ;print "my status is being increased because I am considered important by the cook"
               set status max (list 1 (status + 0.01))
             ]
-            ]
-            my-status > status-of-my-cook [
-              ask my-cook [
-                ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
-                set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
-              ]
-            ]
 
-            ;if no input is selected for meal-evaluation, throw error
-            [print (list who "I do not know how to evaluate the meal!")]
+            ;if no last-meal-enjoyment
+            [print (list who "I do not have an opinion about the last meal I had!")]
 
           )
-        ]
 
-        ;cooks distribute status
-        ask persons with [is-cook? = true][
-          let cooks-status status
-          ask my-dinner-guests with [is-cook? = false] [
-
-            (ifelse last-meal-enjoyment = "positive" [
-              set status max (list 1 (status + 0.01))
-              ]
-
-              last-meal-enjoyment = "negative" and cooks-status > status [
-                ;print "my status is being reduced because I did not like the meal"
-                set status max (list 1 (status - 0.02))
-              ]
-
-              last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
-                ;print "my status is being increased because I am considered important by the cook"
-                set status max (list 1 (status + 0.01))
-              ]
-
-              ;if no last-meal-enjoyment
-              [print (list who "I do not have an opinion about the last meal I had!")]
-
-            )
-
-          ]
         ]
       ]
     ]
+  ]
 
 
 
@@ -656,7 +766,7 @@ to visualization
       ]
       ;if diet is not set or lost
       [set color 9.9 ;white
-        print "I don't have a diet!"
+        print (list who "I don't have a diet!")
       ]
     )
 
@@ -678,11 +788,12 @@ to-report cooking-skills-distribution
   report [cooking-skills] of persons
 end
 
-to-report diet-variance
+to-report diet-variety-households
+  report [diet-diversity] of households
+end
 
-
-
-
+to-report diet-variety-networks
+  report [network-diet-diversity] of persons
 end
 
 to-report frequency [x freq-list]
@@ -759,7 +870,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-11.0
+16.0
 5
 1
 NIL
@@ -788,7 +899,7 @@ INPUTBOX
 158
 686
 current-seed
-3.8552673E8
+1.906602825E9
 1
 0
 Number
@@ -807,8 +918,8 @@ fixed-seed?
 PLOT
 1071
 12
-1421
-255
+1299
+256
 meals cooked
 NIL
 NIL
@@ -846,8 +957,8 @@ PENS
 PLOT
 1072
 262
-1422
-496
+1299
+497
 dietary preferences
 NIL
 NIL
@@ -949,8 +1060,8 @@ CHOOSER
 564
 meal-selection
 meal-selection
-"status-based" "skills-based" "data-based" "majority" "random"
-3
+"status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
+4
 
 SLIDER
 191
@@ -1021,7 +1132,7 @@ mean-family-size
 mean-family-size
 0
 10
-3.0
+9.0
 1
 1
 NIL
@@ -1065,7 +1176,7 @@ CHOOSER
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-1
+0
 
 SWITCH
 166
@@ -1089,10 +1200,10 @@ LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 1
 
 PLOT
-1430
-12
-1630
-258
+1535
+508
+1738
+702
 Persons in or out 
 NIL
 NIL
@@ -1182,10 +1293,61 @@ TEXTBOX
 304
 363
 341
-Division of carnivorous/flexitarian, pescatarian, vegetarian and vegan diets in population
+Division of carnivorous/flexitarian, pescatarian, vegetarian and vegan diets in population (~2020)
 10
 0.0
 1
+
+PLOT
+1305
+264
+1505
+496
+Diet variety in households
+NIL
+NIL
+1.0
+5.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram(diet-variety-households)"
+
+PLOT
+1305
+12
+1505
+255
+Diet variety in network
+NIL
+NIL
+1.0
+5.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram(diet-variety-networks)"
+
+SLIDER
+189
+89
+362
+123
+collectivism-dim
+collectivism-dim
+0
+1
+0.08
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
