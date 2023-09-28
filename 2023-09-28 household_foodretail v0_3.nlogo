@@ -9,13 +9,13 @@ extensions [ rnd table ]
 
 breed [ persons person ]
 breed  [ households household ]
-;breed  [ food_outlets food_outlet ]
+breed  [ food_outlets food_outlet ]
 breed [ foods food ]
 
 ;directed-link-breed [ parents parent ]
-undirected-link-breed [friends friend ] ;assumption: friendships are mutual experiences
-undirected-link-breed [family-members family-member]
-directed-link-breed [household-members household-member]
+undirected-link-breed [friendships friendship ] ;assumption: friendships are mutual experiences
+undirected-link-breed [family-memberships family-membership]
+directed-link-breed [household-memberships household-membership]
 
 
 globals [
@@ -62,12 +62,15 @@ households-own [
   diet-diversity
 ]
 
-;food_outlets-own [
-;  assortment
-;  sales
+food_outlets-own [
+  shelf-space-meat
+  shelf-space-fish
+  shelf-space-veget
+  shelf-space-vegan
+  sales
 ;  business-orientation
 ;  susceptibility-to-demand
-;]
+]
 
 foods-own [
   protein-type
@@ -169,9 +172,9 @@ to setup-families
     set h-id first [id] of households-here ; persons set h-id based on id of household
     set at-home? true
     let my-family other persons-here ; persons set up a family with the persons in the same household
-    create-family-members-with my-family [set color pink] ; persons create family bonds
+    create-family-memberships-with my-family [set color pink] ; persons create family bonds
     let my-house households with [id = [h-id] of myself]
-    create-household-member-from one-of my-house [set color 37]
+    create-household-membership-from one-of my-house [set color 37]
   ]
 
 end
@@ -187,8 +190,8 @@ to setup-friendships
   ifelse friendships? = true [
     ask persons [
       let potential-friends other persons with [h-id != [h-id] of myself]
-      let nr-friendships random 2 ;people will create 0 or 1 friends
-      repeat nr-friendships [create-friend-with one-of potential-friends [set color 9.9]]
+      let nr-friendships random nr-friends ;people will create 0 or 1 friends
+      repeat nr-friendships [create-friendship-with one-of potential-friends [set color 9.9]]
     ]
   ]
   ;friendships? = false
@@ -246,8 +249,8 @@ to closure-meals ;person and household procedure
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
 
-    let dinner-friends friend-neighbors
-    let dinner-members family-member-neighbors
+    let dinner-friends friendship-neighbors
+    let dinner-members family-membership-neighbors
     let network-members (turtle-set dinner-friends dinner-members self)
     let diets-network [ (list diet) ] of network-members
     let unique-diets-network remove-duplicates diets-network
@@ -281,8 +284,20 @@ to select-group-and-cook ;household procedure
 
       ask todays-cook [
         set is-cook? true
-        set cooking-skills max (list 1 (cooking-skills + 0.01))
         set my-dinner-guests todays-dinner-guests ;gather group for meal - for now this is only the family members, not friends
+
+        (ifelse dynamic-cs? = true [
+          set cooking-skills max (list 1 (cooking-skills + 0.01))
+          ]
+          dynamic-cs? = false [
+            ;do nothing - the cook does not improve his cooking
+          ]
+          ;if dynamic-cs? is not set for some reason
+          [print (list who "I don't know what to do with cooking skills")]
+        )
+
+
+
 
 
 
@@ -310,9 +325,18 @@ to select-group-and-cook ;household procedure
         ask todays-cook [
 
           set is-cook? true
-          set cooking-skills max (list 1 (cooking-skills + 0.01))
 
-          let nr-dinner-friends count friend-neighbors with [at-home? = true]
+          (ifelse dynamic-cs? = true [
+          set cooking-skills max (list 1 (cooking-skills + 0.01))
+          ]
+          dynamic-cs? = false [
+            ;do nothing - the cook does not improve his cooking
+          ]
+          ;if dynamic-cs? is not set for some reason
+          [print (list who "I don't know what to do with cooking skills")]
+        )
+
+          let nr-dinner-friends count friendship-neighbors with [at-home? = true]
 
 
           ;;if the cook has no friends
@@ -324,13 +348,13 @@ to select-group-and-cook ;household procedure
           ;nr-dinner friends != 0
           [
 
-            let dinner-friends friend-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+            let dinner-friends friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
             ask dinner-friends [
               set at-home? false
               move-to patch-here
             ]
 
-            let dinner-members family-member-neighbors with [at-home? = true]
+            let dinner-members family-membership-neighbors with [at-home? = true]
             set my-dinner-guests (turtle-set dinner-members dinner-friends self)
 
           ]
@@ -635,7 +659,7 @@ to evaluate-meal
 
         ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
         ifelse last-meal-enjoyment = "positive" [
-          ;set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
+          set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
         ] [
           ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
         ]
@@ -648,10 +672,10 @@ to evaluate-meal
       ask persons with [is-cook? = false][
 
         (ifelse last-meal-enjoyment = "negative" [
-          ask my-cook [set status max (list 1 (status - 0.02))] ;status loss is more severe than status gain
+          ask my-cook [set status max (list 1 (status - status-increment))] ;status loss is more severe than status gain
           ]
           last-meal-enjoyment = "positive" [
-            ask my-cook [set status max (list 1 (status + 0.01))]
+            ask my-cook [set status max (list 1 (status + status-increment))]
           ]
 
           ;if no last-meals-quality was calcualted
@@ -677,13 +701,13 @@ to evaluate-meal
         (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
           ask my-cook [
             ;print "my status is being increased because my dinner guests liked what I cooked for them"
-            set status max (list 1 (status + 0.01))
+            set status max (list 1 (status + status-increment))
           ]
           ]
           my-status > status-of-my-cook [
             ask my-cook [
               ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
-              set status max (list 1 (status - 0.02)) ;if the cook has lower status than myself and I don't like the meal, I will say so
+              set status max (list 1 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
             ]
           ]
 
@@ -699,17 +723,17 @@ to evaluate-meal
         ask my-dinner-guests with [is-cook? = false] [
 
           (ifelse last-meal-enjoyment = "positive" [
-            set status max (list 1 (status + 0.01))
+            set status max (list 1 (status + status-increment))
             ]
 
             last-meal-enjoyment = "negative" and cooks-status > status [
               ;print "my status is being reduced because I did not like the meal"
-              set status max (list 1 (status - 0.02))
+              set status max (list 1 (status - status-increment))
             ]
 
             last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
                                                                                                     ;print "my status is being increased because I am considered important by the cook"
-              set status max (list 1 (status + 0.01))
+              set status max (list 1 (status + status-increment))
             ]
 
             ;if no last-meal-enjoyment
@@ -803,11 +827,11 @@ end
 GRAPHICS-WINDOW
 377
 10
-1064
-698
+1049
+683
 -1
 -1
-20.6
+22.152
 1
 10
 1
@@ -862,10 +886,10 @@ NIL
 1
 
 SLIDER
-3
-215
-176
-248
+6
+92
+179
+125
 initial-nr-households
 initial-nr-households
 1
@@ -894,10 +918,10 @@ NIL
 1
 
 INPUTBOX
-3
-626
-158
-686
+0
+329
+155
+389
 current-seed
 1.906602825E9
 1
@@ -905,10 +929,10 @@ current-seed
 Number
 
 SWITCH
-170
-628
-283
-661
+162
+330
+275
+363
 fixed-seed?
 fixed-seed?
 0
@@ -935,6 +959,7 @@ PENS
 "fish" 1.0 0 -1664597 true "" "plot count persons with [meal-i-cooked = \"fish\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [meal-i-cooked = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
+"total" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
 
 PLOT
 1074
@@ -994,10 +1019,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 SLIDER
-190
-130
-363
-163
+188
+561
+361
+594
 max-cs-meat
 max-cs-meat
 0
@@ -1009,10 +1034,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-188
-170
-361
-203
+185
+602
+358
+635
 max-cs-fish
 max-cs-fish
 0
@@ -1024,10 +1049,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-212
-363
-245
+188
+644
+361
+677
 max-cs-veget
 max-cs-veget
 0
@@ -1039,10 +1064,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-252
-363
-285
+188
+684
+361
+717
 max-cs-vegan
 max-cs-vegan
 0
@@ -1054,85 +1079,85 @@ NIL
 HORIZONTAL
 
 CHOOSER
-13
-519
-153
-564
+1
+416
+141
+461
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
-4
+0
 
 SLIDER
-191
-342
-364
-375
+190
+90
+363
+123
 p-me
 p-me
 0
 1
-0.8
+0.52
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-192
-385
-365
-418
+190
+130
+363
+163
 p-fi
 p-fi
 0
 1
-0.02
+0.26
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-194
-426
-367
-459
+190
+170
+363
+203
 p-vt
 p-vt
 0
 1
-0.02
+0.77
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-191
-468
-364
-501
+187
+212
+360
+245
 p-vn
 p-vn
 0
 1
-0.74
+0.61
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-8
-132
-181
-165
+6
+134
+179
+167
 mean-family-size
 mean-family-size
 0
 10
-9.0
+3.0
 1
 1
 NIL
@@ -1154,10 +1179,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-258
-173
-291
+151
+457
+324
+490
 meal-quality-variance
 meal-quality-variance
 0
@@ -1169,20 +1194,20 @@ NIL
 HORIZONTAL
 
 CHOOSER
-12
-569
-151
-614
+0
+466
+139
+511
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-0
+1
 
 SWITCH
-166
-521
-279
-554
+7
+253
+120
+286
 friendships?
 friendships?
 0
@@ -1190,10 +1215,10 @@ friendships?
 -1000
 
 TEXTBOX
-15
-63
-152
-127
+1580
+143
+1717
+207
 LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 10
 0.0
@@ -1219,81 +1244,71 @@ PENS
 "out" 1.0 0 -4539718 true "" "plot count persons with [at-home? = false]"
 
 SLIDER
+6
+561
+178
+594
+p-me-cons
+p-me-cons
+0
+1
+0.71
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+603
+177
+636
+p-fi-cons
+p-fi-cons
+0
+1
+0.71
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+4
+642
+176
+675
+p-vt-cons
+p-vt-cons
+0
+1
+0.7
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
 3
-340
+680
 175
-373
-p-me-cons
-p-me-cons
-0
-1
-0.3
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-2
-382
-174
-415
-p-fi-cons
-p-fi-cons
-0
-1
-0.04
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1
-426
-173
-459
-p-vt-cons
-p-vt-cons
-0
-1
-0.59
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-2
-472
-174
-505
+713
 p-vn-cons
 p-vn-cons
 0
 1
-0.07
+0.41
 0.01
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-12
-309
-179
-334
-Data-based consumption of protein sources (kcal/person/day)
-10
-0.0
-1
-
-TEXTBOX
-196
-304
-363
-341
-Division of carnivorous/flexitarian, pescatarian, vegetarian and vegan diets in population (~2020)
+15
+530
+182
+555
+Data-based sliders\nkcal/person/day)
 10
 0.0
 1
@@ -1335,19 +1350,140 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram(diet-variety-networks)"
 
 SLIDER
-189
-89
-362
-123
+151
+416
+324
+449
 collectivism-dim
 collectivism-dim
 0
 1
-0.97
+0.98
 0.01
 1
 NIL
 HORIZONTAL
+
+SLIDER
+1525
+41
+1698
+75
+animal-based-supply
+animal-based-supply
+0
+150
+70.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1522
+82
+1695
+116
+plant-based-supply
+plant-based-supply
+0
+150
+41.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+1533
+21
+1670
+38
+Protein supply (g/person/day)
+10
+0.0
+1
+
+SWITCH
+126
+254
+246
+288
+dynamic-cs?
+dynamic-cs?
+1
+1
+-1000
+
+SLIDER
+4
+212
+177
+246
+nr-friends
+nr-friends
+2
+10
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+151
+499
+324
+533
+status-increment
+status-increment
+0
+0.1
+0.08
+0.01
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+9
+69
+146
+86
+INITIALIZATION
+10
+0.0
+1
+
+TEXTBOX
+194
+542
+331
+559
+Quality-based sliders
+10
+0.0
+1
+
+TEXTBOX
+7
+392
+144
+409
+SCENARIOS
+10
+0.0
+1
+
+TEXTBOX
+7
+306
+144
+323
+RUN CONTROLS
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
