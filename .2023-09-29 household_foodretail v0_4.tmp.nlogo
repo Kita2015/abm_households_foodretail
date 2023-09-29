@@ -216,6 +216,7 @@ to go
   closure-meals
   select-group-and-cook
   select-meal
+  set-meal-evaluation
   evaluate-meal
   visualization
 
@@ -287,7 +288,7 @@ to select-group-and-cook ;household procedure
         set my-dinner-guests todays-dinner-guests ;gather group for meal - for now this is only the family members, not friends
 
         (ifelse dynamic-cs? = true [
-          set cooking-skills max (list 1 (cooking-skills + 0.01))
+          set cooking-skills min (list 1 (cooking-skills + 0.01))
           ]
           dynamic-cs? = false [
             ;do nothing - the cook does not improve his cooking
@@ -327,7 +328,7 @@ to select-group-and-cook ;household procedure
           set is-cook? true
 
           (ifelse dynamic-cs? = true [
-          set cooking-skills max (list 1 (cooking-skills + 0.01))
+          set cooking-skills min (list 1 (cooking-skills + 0.01))
           ]
           dynamic-cs? = false [
             ;do nothing - the cook does not improve his cooking
@@ -621,9 +622,8 @@ to select-meal ;person procedure
 
 end
 
-to evaluate-meal
-
-  ask households [
+to set-meal-evaluation
+    ask households [
     ifelse empty-house? = true [
       ;do not run this procedure
     ]
@@ -634,117 +634,123 @@ to evaluate-meal
 
 
       ;set the meal evaluation
-      ask persons with [is-cook? = true][
+      ask members with [is-cook? = true and at-home? = true][
         let my-meals-quality random-normal cooks-cooking-skills meal-quality-variance ;meal quality here is dependent of cooking skills of the cook: cooking skills +/- a standard deviation set in interface
                                                                                       ;print (list who my-meals-quality is-cook?)
         ask my-dinner-guests [
           set last-meals-quality my-meals-quality
           ;print (list who last-meals-quality is-cook?)
-        ]
-      ]
 
-      ask persons [
-
-        (ifelse last-meals-quality < 0.55 [
-          set last-meal-enjoyment "negative"
-          ]
-          last-meals-quality >= 0.55 [
+          (ifelse last-meals-quality < 0.55 [
+            set last-meal-enjoyment "negative"
+          ] last-meals-quality >= 0.55 [
             set last-meal-enjoyment "positive"
+          ] [
+            ;if no meal evaluation took place
+            print "I did not evaluate the meal I just had!"
+          ])
+
+
+
+          ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
+          ifelse last-meal-enjoyment = "positive" [
+            set diet my-last-dinner ;agent uses last meal he had to set new diet preference
+          ] [
+            ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
           ]
-          ;if no meal evaluation took place
-          [print "I did not evaluate the meal I just had!"]
-        )
-
-
-
-        ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
-        ifelse last-meal-enjoyment = "positive" [
-          set diet [my-last-dinner] of self ;agent uses last meal he had to set new diet preference
-        ] [
-          ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
-        ]
-      ]
-    ]
-
-    ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
-    if meal-evaluation = "quality-based" [
-
-      ask persons with [is-cook? = false][
-
-        (ifelse last-meal-enjoyment = "negative" [
-          ask my-cook [set status max (list 1 (status - status-increment))] ;status loss is more severe than status gain
-          ]
-          last-meal-enjoyment = "positive" [
-            ask my-cook [set status max (list 1 (status + status-increment))]
-          ]
-
-          ;if no last-meals-quality was calcualted
-          [print "I was not able to judge my meal!"]
-
-        )
-
-      ]
-    ]
-
-
-    ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
-    ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
-    if meal-evaluation = "status-based" [
-
-      ;dinner guests distribute status
-      ask persons with [is-cook? = false][
-
-        let my-status status
-        let status-of-my-cook [status] of my-cook
-        ;print (list who my-status my-cook status-of-my-cook)
-
-        (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
-          ask my-cook [
-            ;print "my status is being increased because my dinner guests liked what I cooked for them"
-            set status max (list 1 (status + status-increment))
-          ]
-          ]
-          my-status > status-of-my-cook [
-            ask my-cook [
-              ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
-              set status max (list 1 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
-            ]
-          ]
-
-          ;if no input is selected for meal-evaluation, throw error
-          [print (list who "I do not know how to evaluate the meal!")]
-
-        )
-      ]
-
-      ;cooks distribute status
-      ask persons with [is-cook? = true][
-        let cooks-status status
-        ask my-dinner-guests with [is-cook? = false] [
-
-          (ifelse last-meal-enjoyment = "positive" [
-            set status max (list 1 (status + status-increment))
-            ]
-
-            last-meal-enjoyment = "negative" and cooks-status > status [
-              ;print "my status is being reduced because I did not like the meal"
-              set status max (list 1 (status - status-increment))
-            ]
-
-            last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
-                                                                                                    ;print "my status is being increased because I am considered important by the cook"
-              set status max (list 1 (status + status-increment))
-            ]
-
-            ;if no last-meal-enjoyment
-            [print (list who "I do not have an opinion about the last meal I had!")]
-
-          )
-
         ]
       ]
     ]
   ]
+end
+
+
+to evaluate-meal
+
+
+
+      ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
+      if meal-evaluation = "quality-based" [
+
+        ask persons with [is-cook? = false] [
+
+          (ifelse last-meal-enjoyment = "negative" [
+            ask my-cook [
+              set status max (list 0 (status - status-increment))
+            ] ;status loss is more severe than status gain
+          ] last-meal-enjoyment = "positive" [
+            ask my-cook [
+              set status min (list 1 (status + status-increment))
+            ]
+          ] [
+            ;if no last-meals-quality was calcualted
+            print (word who " was not able to judge my meal! last-meal-enjoyment = \"" last-meal-enjoyment "\" ; last-meals-quality = \"" last-meals-quality "\"")
+          ])
+
+        ]
+      ]
+
+
+      ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
+      ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
+      if meal-evaluation = "status-based" [
+
+        ;dinner guests distribute status
+        ask persons with [is-cook? = false][
+
+          let my-status status
+          let status-of-my-cook [status] of my-cook
+          ;print (list who my-status my-cook status-of-my-cook)
+
+          (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
+            ask my-cook [
+              ;print "my status is being increased because my dinner guests liked what I cooked for them"
+              set status min (list 1 (status + status-increment))
+            ]
+            ]
+            my-status > status-of-my-cook [
+              ask my-cook [
+                ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
+                set status max (list 0 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
+              ]
+            ]
+
+            ;if no input is selected for meal-evaluation, throw error
+            [print (list who "I do not know how to evaluate the meal!")]
+
+          )
+        ]
+
+        ;cooks distribute status
+        ask persons with [is-cook? = true][
+          let cooks-status status
+          ask my-dinner-guests with [is-cook? = false] [
+
+            (ifelse last-meal-enjoyment = "positive" [
+              set status min (list 1 (status + status-increment))
+              ]
+
+              last-meal-enjoyment = "negative" and cooks-status > status [
+                ;print "my status is being reduced because I did not like the meal"
+                set status max (list 0 (status - status-increment))
+              ]
+
+              last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
+                                                                                                      ;print "my status is being increased because I am considered important by the cook"
+                set status min (list 1 (status + status-increment))
+              ]
+
+              ;if no last-meal-enjoyment
+              [print (list who "I do not have an opinion about the last meal I had!")]
+
+            )
+
+          ]
+        ]
+      ]
+    ]
+
+
 
 
 
@@ -827,8 +833,8 @@ end
 GRAPHICS-WINDOW
 377
 10
-1049
-683
+1116
+750
 -1
 -1
 22.152
@@ -894,7 +900,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-16.0
+21.0
 5
 1
 NIL
@@ -1001,15 +1007,15 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1300
-504
-1528
-700
+1306
+505
+1534
+701
 distribution of status
 NIL
 NIL
--10.0
-10.0
+0.0
+1.1
 0.0
 10.0
 true
@@ -1086,7 +1092,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
-0
+5
 
 SLIDER
 190
@@ -1201,7 +1207,7 @@ CHOOSER
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-1
+0
 
 SWITCH
 7
@@ -1215,10 +1221,10 @@ friendships?
 -1000
 
 TEXTBOX
-1580
-143
-1717
-207
+1528
+134
+1665
+198
 LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 10
 0.0
@@ -1368,7 +1374,7 @@ SLIDER
 1525
 41
 1698
-75
+74
 animal-based-supply
 animal-based-supply
 0
@@ -1383,7 +1389,7 @@ SLIDER
 1522
 82
 1695
-116
+115
 plant-based-supply
 plant-based-supply
 0
@@ -1398,7 +1404,7 @@ TEXTBOX
 1533
 21
 1670
-38
+39
 Protein supply (g/person/day)
 10
 0.0
@@ -1408,7 +1414,7 @@ SWITCH
 126
 254
 246
-288
+287
 dynamic-cs?
 dynamic-cs?
 1
@@ -1419,7 +1425,7 @@ SLIDER
 4
 212
 177
-246
+245
 nr-friends
 nr-friends
 2
@@ -1434,13 +1440,13 @@ SLIDER
 151
 499
 324
-533
+532
 status-increment
 status-increment
 0
-0.1
-0.08
 0.01
+0.001
+0.001
 1
 NIL
 HORIZONTAL
@@ -1449,7 +1455,7 @@ TEXTBOX
 9
 69
 146
-86
+87
 INITIALIZATION
 10
 0.0
@@ -1459,7 +1465,7 @@ TEXTBOX
 194
 542
 331
-559
+560
 Quality-based sliders
 10
 0.0
@@ -1469,7 +1475,7 @@ TEXTBOX
 7
 392
 144
-409
+410
 SCENARIOS
 10
 0.0
@@ -1479,7 +1485,7 @@ TEXTBOX
 7
 306
 144
-323
+324
 RUN CONTROLS
 10
 0.0
