@@ -9,7 +9,7 @@ extensions [ rnd table ]
 
 breed [ persons person ]
 breed  [ households household ]
-breed  [ food_outlets food_outlet ]
+breed  [ food-outlets food-outlet ]
 breed [ foods food ]
 
 ;directed-link-breed [ parents parent ]
@@ -62,12 +62,15 @@ households-own [
   diet-diversity
 ]
 
-food_outlets-own [
+food-outlets-own [
   shelf-space-meat
   shelf-space-fish
   shelf-space-veget
   shelf-space-vegan
-  sales
+  sales-meat
+  sales-fish
+  sales-veget
+  sales-vegan
 ;  business-orientation
 ;  susceptibility-to-demand
 ]
@@ -78,6 +81,10 @@ foods-own [
   ;price
   ;availability
 ]
+
+;;;;;;;;;;;
+;; SETUP ;;
+;;;;;;;;;;;
 
 to setup
   clear-all
@@ -201,13 +208,24 @@ to setup-friendships
 end
 
 
-;to setup-food_outlets
-;  ;;;
-;end
+to setup-food-outlets
+  set shelf-space-meat value-shelf-space-meat
+  set shelf-space-fish value-shelf-space-fish
+  set shelf-space-veget value-shelf-space-vegetarian
+  set shelf-space-vegan value-shelf-space-vegan
+  set sales-meat "none"
+  set sales-fish "none"
+  set sales-veget "none"
+  set sales-vegan "none"
+end
 
 ;to setup-foods
 ;
 ;end
+
+;;;;;;;;;
+;; RUN ;;
+;;;;;;;;;
 
 to go
 
@@ -218,6 +236,7 @@ to go
   select-meal
   set-meal-evaluation
   evaluate-meal
+  evaluate-demand
   visualization
 
 
@@ -748,13 +767,25 @@ to evaluate-meal
           ]
         ]
       ]
-    ]
-
 
 
 
 
 end
+
+to evaluate-demand ;food-outlet procedure
+
+  ;determine sa
+  ask food-outlets [
+  set sales-meat count persons with [meal-i-cooked = "meat"]
+  set sales-fish count persons with [meal-i-cooked = "fish"]
+  set sales-veget count persons with [meal-i-cooked = "veget"]
+  set sales-vegan count persons with [meal-i-cooked = "vegan"]
+  ]
+
+
+end
+
 
 
 to visualization
@@ -1207,7 +1238,7 @@ CHOOSER
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-0
+1
 
 SWITCH
 7
@@ -1490,6 +1521,66 @@ RUN CONTROLS
 10
 0.0
 1
+
+SLIDER
+1519
+260
+1694
+294
+value-shelf-space-meat
+value-shelf-space-meat
+0
+1
+0.49
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1519
+300
+1692
+334
+value-shelf-space-fish
+value-shelf-space-fish
+0
+1
+0.1
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1518
+342
+1696
+376
+value-shelf-space-vegetarian
+value-shelf-space-vegetarian
+0
+1
+0.36
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1518
+383
+1696
+417
+value-shelf-space-vegan
+value-shelf-space-vegan
+0
+1
+0.05
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

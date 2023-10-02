@@ -9,7 +9,7 @@ extensions [ rnd table ]
 
 breed [ persons person ]
 breed  [ households household ]
-breed  [ food_outlets food_outlet ]
+breed  [ food-outlets food-outlet ]
 breed [ foods food ]
 
 ;directed-link-breed [ parents parent ]
@@ -62,7 +62,7 @@ households-own [
   diet-diversity
 ]
 
-food_outlets-own [
+food-outlets-own [
   shelf-space-meat
   shelf-space-fish
   shelf-space-veget
@@ -96,7 +96,7 @@ to setup
   show-families
   setup-friendships
   visualization
-  ;setup-food_outlets
+  setup-food-outlets
   ;setup-foods
   reset-ticks
 end
@@ -208,15 +208,22 @@ to setup-friendships
 end
 
 
-to setup-food_outlets
-  set shelf-space-meat value-shelf-space-meat
-  set shelf-space-fish value-shelf-space-fish
-  set shelf-space-veget value-shelf-space-vegetarian
-  set shelf-space-vegan value-shelf-space-vegan
-  set sales-meat "none"
-  set sales-fish "none"
-  set sales-veget "none"
-  set sales-vegan "none"
+to setup-food-outlets
+  create-food-outlets 1
+  ask food-outlets [
+    move-to one-of patches with [not any? turtles-here]
+    set shape "square 2"
+    set color 9.9
+    set size 1.5
+    set shelf-space-meat value-shelf-space-meat
+    set shelf-space-fish value-shelf-space-fish
+    set shelf-space-veget value-shelf-space-vegetarian
+    set shelf-space-vegan value-shelf-space-vegan
+    set sales-meat "none"
+    set sales-fish "none"
+    set sales-veget "none"
+    set sales-vegan "none"
+  ]
 end
 
 ;to setup-foods
@@ -236,6 +243,7 @@ to go
   select-meal
   set-meal-evaluation
   evaluate-meal
+  evaluate-demand
   visualization
 
 
@@ -772,6 +780,22 @@ to evaluate-meal
 
 end
 
+to evaluate-demand ;food-outlet procedure
+
+  ;determine sales
+  ask food-outlets [
+  set sales-meat count persons with [meal-i-cooked = "meat"]
+  set sales-fish count persons with [meal-i-cooked = "fish"]
+  set sales-veget count persons with [meal-i-cooked = "veget"]
+  set sales-vegan count persons with [meal-i-cooked = "vegan"]
+  ]
+
+
+
+
+end
+
+
 
 to visualization
   ask persons [
@@ -842,6 +866,23 @@ to-report diet-variety-networks
   report [network-diet-diversity] of persons
 end
 
+to-report average-meat-ss
+  report mean [shelf-space-meat] of food-outlets
+end
+
+to-report average-fish-ss
+  report mean [shelf-space-fish] of food-outlets
+end
+
+to-report average-veget-ss
+  report mean [shelf-space-veget] of food-outlets
+end
+
+to-report average-vegan-ss
+  report mean [shelf-space-vegan] of food-outlets
+end
+
+
 to-report frequency [x freq-list]
   report reduce [ [occurrence-count next-item] -> ifelse-value (next-item = x) [occurrence-count + 1] [occurrence-count] ] (fput 0 freq-list)
 end
@@ -849,11 +890,11 @@ end
 GRAPHICS-WINDOW
 377
 10
-1116
-750
+1059
+693
 -1
 -1
-22.152
+18.333333333333332
 1
 10
 1
@@ -984,28 +1025,10 @@ PENS
 "total" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
 
 PLOT
-1074
-504
-1297
-700
-distribution of cooking skills
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"skills" 0.1 1 -16777216 true "" "histogram(cooking-skills-distribution)"
-
-PLOT
-1072
-262
-1299
-497
+1308
+505
+1535
+740
 dietary preferences
 NIL
 NIL
@@ -1023,10 +1046,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1306
-505
-1534
-701
+1074
+502
+1302
+698
 distribution of status
 NIL
 NIL
@@ -1108,7 +1131,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
-5
+1
 
 SLIDER
 190
@@ -1164,7 +1187,7 @@ p-vn
 p-vn
 0
 1
-0.61
+1.0
 0.01
 1
 NIL
@@ -1245,25 +1268,6 @@ LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 10
 0.0
 1
-
-PLOT
-1535
-508
-1738
-702
-Persons in or out 
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"in" 1.0 0 -16777216 true "" "plot count persons with [at-home? = true]"
-"out" 1.0 0 -4539718 true "" "plot count persons with [at-home? = false]"
 
 SLIDER
 6
@@ -1380,7 +1384,7 @@ collectivism-dim
 collectivism-dim
 0
 1
-0.98
+0.6
 0.01
 1
 NIL
@@ -1566,6 +1570,27 @@ value-shelf-space-vegan
 1
 NIL
 HORIZONTAL
+
+PLOT
+1070
+265
+1302
+497
+food outlet assortment
+NIL
+NIL
+0.0
+2.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -8431303 true "" "plot average-meat-ss"
+"pen-1" 1.0 0 -2064490 true "" "plot average-fish-ss"
+"pen-2" 1.0 0 -4079321 true "" "plot average-veget-ss"
+"pen-3" 1.0 0 -14439633 true "" "plot average-vegan-ss"
 
 @#$#@#$#@
 ## WHAT IS IT?
