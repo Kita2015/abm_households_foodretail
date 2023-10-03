@@ -885,11 +885,14 @@ to evaluate-demand ;food-outlet procedure
 
   ;determine sales
   ask food-outlets [
-    set sales-meat count persons with [meal-i-cooked = "meat"]
-    set sales-fish count persons with [meal-i-cooked = "fish"]
-    set sales-veget count persons with [meal-i-cooked = "veget"]
-    set sales-vegan count persons with [meal-i-cooked = "vegan"]
+  set sales-meat count persons with [meal-i-cooked = "meat"]
+  set sales-fish count persons with [meal-i-cooked = "fish"]
+  set sales-veget count persons with [meal-i-cooked = "veget"]
+  set sales-vegan count persons with [meal-i-cooked = "vegan"]
   ]
+
+
+
 
 
 end
