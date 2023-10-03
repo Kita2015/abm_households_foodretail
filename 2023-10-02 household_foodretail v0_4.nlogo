@@ -21,7 +21,8 @@ directed-link-breed [household-memberships household-membership]
 globals [
   diet-list ;weighted list of diets
   diets-list ;list with only diets
-  ;income-levels
+  product-list
+  income-levels
   id-households
   cooked-meat
   cooked-fish
@@ -51,10 +52,11 @@ persons-own [
   ;egoism
   status
   at-home?
+  my-supermarket
 ]
 
 households-own [
-  ;income-level
+  income-level
   id ; identifier
   members
   meal-cooked?
@@ -63,10 +65,8 @@ households-own [
 ]
 
 food-outlets-own [
-  shelf-space-meat
-  shelf-space-fish
-  shelf-space-veget
-  shelf-space-vegan
+potential-costumers
+  product-selection
   sales-meat
   sales-fish
   sales-veget
@@ -112,7 +112,8 @@ to setup-globals
 
   set diet-list (list (list "meat" p-me ) (list  "fish" p-fi ) (list "vegetarian" p-vt ) (list "vegan" p-vn ))
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
-  ;set income-levels ["low" "middle" "high"]
+  set income-levels (list (list "low" p-low) (list "middle" p-middle) (list "high" p-high))
+  set product-list (list (list "meat" value-shelf-space-meat) (list "fish" value-shelf-space-fish) (list "vegetarian" value-shelf-space-vegetarian) (list "vegan" value-shelf-space-vegan) )
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -130,12 +131,14 @@ to setup-households
     set id id-households + 1
     set id-households id-households + 1 ;each households updates the global variable id-households
                                         ;create household with members
+    set income-level first rnd:weighted-one-of-list income-levels [ [p] -> last p ]
     let new-family random-normal mean-family-size sd-family-size
     let new-family-abs abs new-family
     hatch-persons new-family-abs + 1
     set empty-house? false
     set meal-cooked? false
     set diet-diversity 0
+
   ]
 
   ;check: no more than one house per patch
@@ -165,6 +168,7 @@ to setup-persons
     set cs-fish random-float max-cs-fish
     set cs-veget random-float max-cs-veget
     set cs-vegan random-float max-cs-vegan
+    set my-supermarket "none"
   ]
 end
 
@@ -209,16 +213,38 @@ end
 
 
 to setup-food-outlets
-  create-food-outlets 1
+  create-food-outlets initial-nr-food-outlets
   ask food-outlets [
     move-to one-of patches with [not any? turtles-here]
     set shape "square 2"
-    set color 9.9
-    set size 1.5
-    set shelf-space-meat value-shelf-space-meat
-    set shelf-space-fish value-shelf-space-fish
-    set shelf-space-veget value-shelf-space-vegetarian
-    set shelf-space-vegan value-shelf-space-vegan
+    set color 25
+    set size 1
+    ;food-outlet counts number of persons in certain radius
+    let my-service-area 1 + (random 3 * food-outlet-service-area)
+    set potential-costumers count persons in-radius my-service-area
+    ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
+    let population-fraction (potential-costumers / count persons)
+    let nr-products "none"
+
+    ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
+    (ifelse population-fraction <= 0.25 [
+      set nr-products 1
+      ]
+      population-fraction > 0.25 and population-fraction <= 0.5 [
+        set nr-products 2
+      ]
+      population-fraction > 0.25 and population-fraction <= 0.75 [
+        set nr-products 3
+      ]
+      population-fraction > 0.75 [
+        set nr-products 4
+      ]
+      ;if calculation of population-fraction did not go right
+      [print (list who "I cannot calculate how many products I will offer to my consumers")]
+      )
+
+    set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ]
+
     set sales-meat "none"
     set sales-fish "none"
     set sales-veget "none"
@@ -238,7 +264,7 @@ to go
 
   if ticks = 365 [stop]
 
-  closure-meals
+  closure-of-tick
   select-group-and-cook
   select-meal
   set-meal-evaluation
@@ -251,7 +277,7 @@ to go
 
 end
 
-to closure-meals ;person and household procedure
+to closure-of-tick
   ask persons with [is-cook? = true ] [
     set meal-i-cooked "none"
     set is-cook? false
@@ -292,6 +318,13 @@ to closure-meals ;person and household procedure
     let unique-diets remove-duplicates diets-members
     let count-diets length(unique-diets)
     set diet-diversity count-diets
+  ]
+
+  ask food-outlets [
+        set sales-meat 0
+    set sales-fish 0
+    set sales-veget 0
+    set sales-vegan 0
   ]
 
 end
@@ -408,6 +441,7 @@ to select-group-and-cook ;household procedure
 end
 
 to select-meal ;person procedure
+
   ask households [
     ifelse empty-house? = true [
       ;do not run this procedure
@@ -510,7 +544,20 @@ to select-meal ;person procedure
             ;;procedure to select meal randomly
 
             let chosen-meal one-of diets-list ;choose random item from the list with diets
+
+            (ifelse food-outlet-interaction? = true [
+              buy-groceries
+            ]
+            food-outlet-interaction? = false [
+              ;just go on with the rest of the procedure
+            ]
+            ;if the agent does not know if he should go to a supermarket or not
+            [print (list who "I do not know if I should go to the supermarket")]
+              )
+
+
             set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+
             set my-last-dinner chosen-meal
 
             ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
@@ -645,6 +692,26 @@ to select-meal ;person procedure
       ]
     ]
   ]
+
+
+
+
+
+
+
+end
+
+to buy-groceries
+  ;all the cooks go buy ingredients at the supermarket
+  ;if the ingredient is available, they will prepare the selected meal
+  ;if the ingredient is NOT available, they will select another meal
+
+  ;cooks select their supermarket; in this version a random selection
+  ask persons with [is-cook? = true] [
+    set my-supermarket one-of food-outlets
+    print (list who my-supermarket)
+  ]
+
 
 end
 
@@ -793,6 +860,8 @@ to evaluate-demand ;food-outlet procedure
 
 
 
+
+
 end
 
 
@@ -866,21 +935,21 @@ to-report diet-variety-networks
   report [network-diet-diversity] of persons
 end
 
-to-report average-meat-ss
-  report mean [shelf-space-meat] of food-outlets
-end
-
-to-report average-fish-ss
-  report mean [shelf-space-fish] of food-outlets
-end
-
-to-report average-veget-ss
-  report mean [shelf-space-veget] of food-outlets
-end
-
-to-report average-vegan-ss
-  report mean [shelf-space-vegan] of food-outlets
-end
+;to-report average-meat-ss
+;  report mean [shelf-space-meat] of food-outlets
+;end
+;
+;to-report average-fish-ss
+;  report mean [shelf-space-fish] of food-outlets
+;end
+;
+;to-report average-veget-ss
+;  report mean [shelf-space-veget] of food-outlets
+;end
+;
+;to-report average-vegan-ss
+;  report mean [shelf-space-vegan] of food-outlets
+;end
 
 
 to-report frequency [x freq-list]
@@ -890,8 +959,8 @@ end
 GRAPHICS-WINDOW
 377
 10
-1059
-693
+990
+624
 -1
 -1
 18.333333333333332
@@ -957,7 +1026,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-21.0
+6.0
 5
 1
 NIL
@@ -986,7 +1055,7 @@ INPUTBOX
 155
 389
 current-seed
-1.906602825E9
+1.307368368E9
 1
 0
 Number
@@ -998,7 +1067,7 @@ SWITCH
 363
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -1028,7 +1097,7 @@ PLOT
 1308
 505
 1508
-741
+697
 dietary preferences
 NIL
 NIL
@@ -1131,7 +1200,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
-1
+5
 
 SLIDER
 190
@@ -1515,7 +1584,7 @@ SLIDER
 1519
 260
 1694
-294
+293
 value-shelf-space-meat
 value-shelf-space-meat
 0
@@ -1530,12 +1599,12 @@ SLIDER
 1519
 300
 1692
-334
+333
 value-shelf-space-fish
 value-shelf-space-fish
 0
 1
-0.1
+0.37
 0.01
 1
 NIL
@@ -1545,12 +1614,12 @@ SLIDER
 1518
 342
 1696
-376
+375
 value-shelf-space-vegetarian
 value-shelf-space-vegetarian
 0
 1
-0.36
+0.11
 0.01
 1
 NIL
@@ -1560,37 +1629,102 @@ SLIDER
 1518
 383
 1696
-417
+416
 value-shelf-space-vegan
 value-shelf-space-vegan
 0
 1
-0.05
+0.04
 0.01
 1
 NIL
 HORIZONTAL
 
-PLOT
-1070
-265
-1302
-497
-food outlet assortment
+SLIDER
+1520
+426
+1692
+459
+p-low
+p-low
+0
+1
+0.5
+0.01
+1
 NIL
+HORIZONTAL
+
+SLIDER
+1521
+462
+1693
+495
+p-middle
+p-middle
+0
+1
+0.4
+0.01
+1
 NIL
-0.0
-2.0
-0.0
-1.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -8431303 true "" "plot average-meat-ss"
-"pen-1" 1.0 0 -2064490 true "" "plot average-fish-ss"
-"pen-2" 1.0 0 -4079321 true "" "plot average-veget-ss"
-"pen-3" 1.0 0 -14439633 true "" "plot average-vegan-ss"
+HORIZONTAL
+
+SLIDER
+1520
+501
+1692
+534
+p-high
+p-high
+0
+1
+0.1
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+192
+52
+364
+85
+initial-nr-food-outlets
+initial-nr-food-outlets
+0
+100
+4.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+184
+294
+359
+327
+food-outlet-service-area
+food-outlet-service-area
+0
+16
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+301
+379
+476
+412
+food-outlet-interaction?
+food-outlet-interaction?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
