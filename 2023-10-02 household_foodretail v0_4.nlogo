@@ -225,7 +225,7 @@ to setup-food-outlets
     set color 25
     set size 1
     ;food-outlet counts number of persons in certain radius
-    let my-service-area 1 + (random 3 * food-outlet-service-area)
+    let my-service-area 1 + (random initial-nr-food-outlets * food-outlet-service-area)
     set potential-costumers count persons in-radius my-service-area
     ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
     let population-fraction (potential-costumers / count persons)
@@ -864,7 +864,7 @@ to evaluate-meal
           (ifelse last-meal-enjoyment = "negative" [
             ask my-cook [
               set status max (list 0 (status - status-increment))
-            ] ;status loss is more severe than status gain
+        ]
           ] last-meal-enjoyment = "positive" [
             ask my-cook [
               set status min (list 1 (status + status-increment))
@@ -895,12 +895,22 @@ to evaluate-meal
               set status min (list 1 (status + status-increment))
             ]
             ]
-            my-status > status-of-my-cook [
+
+                            my-status > status-of-my-cook and last-meal-enjoyment = "positive" [
+              ask my-cook [
+              ;print "my status is being increased because my dinner guests liked what I cooked for them"
+              set status min (list 1 (status + status-increment))
+          ]
+            ]
+
+            my-status > status-of-my-cook and last-meal-enjoyment = "negative" [
               ask my-cook [
                 ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
                 set status max (list 0 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
               ]
             ]
+
+
 
             ;if no input is selected for meal-evaluation, throw error
             [print (list who "I do not know how to evaluate the meal!")]
@@ -1042,13 +1052,11 @@ to update-stock
         ;if the food outlet cannot determine the difference in sales and stock
         [print (list who "I cannot determine if I gained or lost")]
       )
-      print (list who stock-meat)
 
         ]
 
       (abs sales-deviation-meat) > accepted-sales-difference-meat = false [
         ;do nothing -> just keep your current stock
-        print (list who "not changing my stock")
       ]
 
         ;if food outlet cannot determine if his sales margin has been exceeded
@@ -1240,7 +1248,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-11.0
+36.0
 5
 1
 NIL
@@ -1269,7 +1277,7 @@ INPUTBOX
 155
 389
 current-seed
-1.35841291E9
+-6.06525875E8
 1
 0
 Number
@@ -1281,7 +1289,7 @@ SWITCH
 363
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -1485,7 +1493,7 @@ mean-family-size
 mean-family-size
 0
 10
-3.0
+2.0
 1
 1
 NIL
@@ -1923,7 +1931,7 @@ food-outlet-service-area
 food-outlet-service-area
 0
 16
-8.0
+10.0
 1
 1
 NIL
@@ -1964,8 +1972,8 @@ PENS
 PLOT
 1068
 265
-1268
-415
+1303
+495
 food outlet median stocks
 NIL
 NIL
