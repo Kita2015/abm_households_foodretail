@@ -1,4 +1,4 @@
-;; version 0.3 ;;
+;; version 0.4 ;;
 
 extensions [ rnd table ]
 
@@ -72,6 +72,10 @@ potential-costumers
   sales-vegetarian
   sales-vegan
   sales
+  initial-stock-meat
+  initial-stock-fish
+  initial-stock-vegetarian
+  initial-stock-vegan
   stock-meat
   stock-fish
   stock-vegetarian
@@ -225,7 +229,7 @@ to setup-food-outlets
     set color 25
     set size 1
     ;food-outlet counts number of persons in certain radius
-    let my-service-area 1 + (random initial-nr-food-outlets * food-outlet-service-area)
+    let my-service-area 1 + food-outlet-service-area
     set potential-costumers count persons in-radius my-service-area
     ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
     let population-fraction (potential-costumers / count persons)
@@ -248,17 +252,17 @@ to setup-food-outlets
       [print (list who "I cannot calculate how many products I will offer to my costumers")]
     )
 
-    set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ]
+    set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
 
-    ;obtain from product-selection which products each food-outlet sells
+    ;food outlets determine for each product in their product-selection, how much of this product is in stock
 
     ;set meat stock
 
     (ifelse member? "meat" product-selection = true [
-      set stock-meat round ( (potential-costumers / nr-products) )
+      set initial-stock-meat round ( (potential-costumers / nr-products) )
       ]
       member? "meat" product-selection = false [
-        set stock-meat 0
+        set initial-stock-meat 0
       ]
       ;if product-selection goes wrong
       [print (list who "I cannot set my meat stock")]
@@ -267,10 +271,10 @@ to setup-food-outlets
     ;set fish stock
 
     (ifelse member? "fish" product-selection = true [
-      set stock-fish round ( (potential-costumers / nr-products) )
+      set initial-stock-fish round ( (potential-costumers / nr-products) )
       ]
       member? "fish" product-selection = false [
-        set stock-fish 0
+        set initial-stock-fish 0
       ]
       ;if product-selection goes wrong
       [print (list who "I cannot set my fish stock")]
@@ -278,10 +282,10 @@ to setup-food-outlets
 
     ;set vegetarian stock
     (ifelse member? "vegetarian" product-selection = true [
-      set stock-vegetarian round ( (potential-costumers / nr-products) )
+      set initial-stock-vegetarian round ( (potential-costumers / nr-products) )
       ]
       member? "vegetarian" product-selection = false [
-        set stock-vegetarian 0
+        set initial-stock-vegetarian 0
       ]
       ;if product-selection goes wrong
       [print (list who "I cannot set my vegetarian stock")]
@@ -289,23 +293,26 @@ to setup-food-outlets
 
     ;set vegan stock
     (ifelse member? "vegan" product-selection = true [
-      set stock-vegan round ( (potential-costumers / nr-products) )
+      set initial-stock-vegan round ( (potential-costumers / nr-products) )
       ]
       member? "vegan" product-selection = false [
-        set stock-vegan 0
+        set initial-stock-vegan 0
       ]
       ;if product-selection goes wrong
       [print (list who "I cannot set my vegan stock")]
     )
 
 
+    set stock-meat initial-stock-meat
+    set stock-fish initial-stock-fish
+    set stock-vegetarian initial-stock-vegetarian
+    set stock-vegan initial-stock-vegan
     set sales-meat 0
     set sales-fish 0
     set sales-vegetarian 0
     set sales-vegan 0
     set sales []
     set label product-selection
-    set label-color white
 
 
   ]
@@ -618,7 +625,7 @@ to select-meal ;person procedure
             [print (list who "I do not know if I should go to the supermarket")]
               )
 
-            set my-last-dinner chosen-meal
+            set my-last-dinner meal-i-cooked
 
             ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
               set my-last-dinner chosen-meal
@@ -764,50 +771,221 @@ end
 to buy-groceries
   ;all the cooks go buy ingredients at the supermarket
   ;if the ingredient is available, they will prepare the selected meal
-  ;if the ingredient is NOT available, they will select another meal
+  ;if the ingredient is NOT available, they will select another meal in the procedure buy-alternative-groceries
 
   ;cooks select their supermarket; in this version a random selection
-  ;  ask persons with [is-cook? = true] [
-  set my-supermarket min-one-of food-outlets [distance myself] ;persons go to the closest supermarket
-                                                               ;print (list who my-supermarket)
+;  ask persons with [is-cook? = true and my-supermarket != "none"] [
+    set my-supermarket min-one-of food-outlets [distance myself] ;persons go to the closest supermarket
 
-  let available-products "none"
+    let available-products "none"
+    let products-list []
+    let stocks-list []
+    let stock-name-list []
+    let product-stock-list []
+    let stock-name-stocks-list []
 
-  ask my-supermarket [
-    set available-products product-selection
-  ]
-  ;print (list who meal-i-cooked)
-  let available? member? meal-i-cooked available-products
-
-  let requested-product meal-i-cooked
-  let nr-dinner-guests count my-dinner-guests
-
-  (ifelse available? = true [
     ask my-supermarket [
-      repeat nr-dinner-guests [
-        set sales fput requested-product sales;keep track of each product sold by adding to the sales list of the food outlet the product bought by the cook
+      set available-products product-selection
+
+      set products-list (list "meat" "fish" "vegetarian" "vegan")
+      set stocks-list (list stock-meat stock-fish stock-vegetarian stock-vegan)
+      set stock-name-list (list "stock-meat" "stock-fish" "stock-vegetarian" "stock-vegan")
+      set product-stock-list table:from-list (map list stocks-list products-list)
+      set stock-name-stocks-list table:from-list (map list stocks-list stock-name-list)
+
+    ]
+
+    let available? member? meal-i-cooked available-products ;check if food outlet sells required product
+    let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+
+    ;check if food outlet has required product still in stock for the quantity the cook needs
+    if meal-i-cooked = "meat" [
+
+      ;if the required product is in stock
+      (ifelse [stock-meat] of my-supermarket >= nr-dinner-guests [
+        ask my-supermarket [
+         set stock-meat stock-meat - nr-dinner-guests
+        ]
+        ]
+        ;if the required product is not in stock, select a product that is in stock, or do not buy anything
+        [stock-meat] of my-supermarket < nr-dinner-guests [
+          buy-alternative-groceries
+        ]
+         ;if the cook cannot compare stock to nr of guests:
+        [print (list who "I cannot determine if the meat I want to purchase is available")]
+        )
+    ]
+
+        if meal-i-cooked = "fish" [
+
+      ;if the required product is in stock
+      (ifelse [stock-fish] of my-supermarket >= nr-dinner-guests [
+        ask my-supermarket [
+          set stock-fish stock-fish - nr-dinner-guests
+        ]
+        ]
+        ;if the required product is not in stock, select a product that is in stock, or do not buy anything
+        [stock-fish] of my-supermarket < nr-dinner-guests [
+          buy-alternative-groceries
+        ]
+         ;if the cook cannot compare stock to nr of guests:
+        [print (list who "I cannot determine if the fish I want to purchase is available")]
+        )
+    ]
+
+        if meal-i-cooked = "vegetarian" [
+
+      ;if the required product is in stock
+      (ifelse [stock-vegetarian] of my-supermarket >= nr-dinner-guests [
+        ask my-supermarket [
+          set stock-vegetarian stock-vegetarian - nr-dinner-guests
+        ]
+        ]
+        ;if the required product is not in stock, select a product that is in stock, or do not buy anything
+        [stock-vegetarian] of my-supermarket < nr-dinner-guests [
+          buy-alternative-groceries
+        ]
+         ;if the cook cannot compare stock to nr of guests:
+        [print (list who "I cannot determine if the vegetarian I want to purchase is available")]
+        )
+    ]
+
+        if meal-i-cooked = "vegan" [
+
+      ;if the required product is in stock
+      (ifelse [stock-vegan] of my-supermarket >= nr-dinner-guests [
+        ask my-supermarket [
+          set stock-vegan stock-vegan - nr-dinner-guests
+        ]
+        ]
+        ;if the required product is not in stock, select a product that is in stock, or do not buy anything
+        [stock-vegan] of my-supermarket < nr-dinner-guests [
+          buy-alternative-groceries
+        ]
+         ;if the cook cannot compare stock to nr of guests:
+        [print (list who "I cannot determine if the vegan I want to purchase is available")]
+        )
+    ]
+
+
+
+
+  ;the cook buys the product and adds his purchase to the sales of the food outlet
+    if meal-i-cooked != "none" [
+      let requested-product meal-i-cooked
+      ;print (list who requested-product)
+      ask my-supermarket [
+        repeat nr-dinner-guests [
+          set sales fput requested-product sales ;add to the sales list of the food outlet the product bought by the cook
+
+        ]
       ]
-
-    ]
     ]
 
-    available? = false [ ;the cook will buy something else that is available in the food outlet - it is assumed here people do not go to another supermarket
-      let my-alternative one-of available-products
-      set meal-i-cooked my-alternative
-      ;print (list who meal-i-cooked)
-
-    ]
-    ;if testing for available products went wrong
-    [print (list who "I cannot determine if the product I want to purchase is available")]
-  )
-
-
-
-
-
+;  ]
 
 
 end
+
+
+
+to buy-alternative-groceries
+
+  set meal-i-cooked "none"
+
+;  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+;
+;    let products-list []
+;    let stocks-list []
+;    let stock-name-list []
+;    let product-stock-list []
+;    let stock-name-stocks-list []
+;
+;
+;    ask my-supermarket [
+;
+;      ;create a table of product stock
+;
+;      set products-list (list "meat" "fish" "vegetarian" "vegan")
+;      set stocks-list (list stock-meat stock-fish stock-vegetarian stock-vegan)
+;      set stock-name-list (list "stock-meat" "stock-fish" "stock-vegetarian" "stock-vegan")
+;      set product-stock-list table:from-list (map list stocks-list products-list)
+;      set stock-name-stocks-list table:from-list (map list stocks-list stock-name-list)
+;  ]
+;
+;  ;select a product that has sufficient stock, or buy nothing
+;
+;          let my-alternative-stock max stocks-list ;select the highest stock number
+;
+;          ;check if the alternative product has enough items in stock for the number of dinner guests
+;          ifelse my-alternative-stock >= nr-dinner-guests [
+;          let my-alternative-product table:get product-stock-list my-alternative-stock
+;            set meal-i-cooked my-alternative-product
+;          ]
+;
+;          let my-alternative-stock-name table:get stock-name-stocks-list my-alternative-stock
+;          print my-alternative-stock-name
+;
+;            ask my-supermarket [
+;
+;            (ifelse my-alternative-stock-name = "stock-meat" [
+;              set stock-meat stock-meat - nr-dinner-guests
+;        ]
+;            my-alternative-stock-name = "stock-fish" [
+;              set stock-fish stock-fish - nr-dinner-guests
+;            ]
+;            my-alternative-stock-name = "stock-vegetarian" [
+;              set stock-vegetarian stock-vegetarian - nr-dinner-guests
+;            ]
+;            my-alternative-stock-name = "stock-vegan" [
+;              set stock-vegan stock-vegan - nr-dinner-guests
+;            ]
+;            ;if the cook was not able to choose an alternative product
+;            [print (list who "I cannot select an alternative product")]
+;            )
+;
+;
+;
+;
+;
+;
+;        ]
+;
+;      )
+;    ]
+;
+;
+;
+;    let requested-product meal-i-cooked
+;
+;
+;    (ifelse available? = true [
+;      ask my-supermarket [
+;        repeat nr-dinner-guests [
+;          set sales fput requested-product sales ;add to the sales list of the food outlet the product bought by the cook
+;
+;
+;        ]
+;
+;      ]
+;      ]
+;
+;      available? = false [ ;the cook will buy something else that is available in the food outlet - it is assumed here people do not go to another supermarket
+;        let my-alternative one-of available-products
+;        set meal-i-cooked my-alternative
+;        ;print (list who meal-i-cooked)
+;
+;      ]
+;      ;if testing for available products went wrong
+;      [print (list who "I cannot determine if the product I want to purchase is available")]
+;    )
+;
+;
+;  ]
+;
+
+end
+
 
 to set-meal-evaluation
     ask households [
@@ -956,16 +1134,22 @@ to check-sales ;food-outlet procedure
   ;determine sales
   ask food-outlets [
 
+    ;print (list who sales)
 
-    let freq-table table:counts sales
-    let sold-products table:keys freq-table
+
+    let freq-table table:counts sales ;count how often each product is sold
+    ;print sales
+    let sold-products table:keys freq-table ;determine which products have been sold
+    ;print sold-products
 
     ;check meat sales
 
     let check-meat member? "meat" sold-products ;sold-products is a list
+    ;print check-meat
 
     (ifelse check-meat = true [
       set sales-meat table:get freq-table "meat"
+
             ]
       check-meat = false [
         set sales-meat 0
@@ -980,6 +1164,7 @@ to check-sales ;food-outlet procedure
 
     (ifelse check-fish = true [
       set sales-fish table:get freq-table "fish"
+
       ]
       check-fish = false [
         set sales-fish 0
@@ -994,6 +1179,7 @@ to check-sales ;food-outlet procedure
 
     (ifelse check-vegetarian = true [
       set sales-vegetarian table:get freq-table "vegetarian"
+
       ]
       check-vegetarian = false [
         set sales-vegetarian 0
@@ -1008,6 +1194,7 @@ to check-sales ;food-outlet procedure
 
     (ifelse check-vegan = true [
       set sales-vegan table:get freq-table "vegan"
+
       ]
       check-vegan = false [
         set sales-vegan 0
@@ -1029,40 +1216,39 @@ to update-stock
     ;stock-change: food outlet size (nr_products) * distance from margin
     ;distance from margin: abs (accepted-sales-difference - sales-deviation)
 
-    let nr-products length product-selection
-    let accepted-sales-difference-meat round ( (0.1 * stock-meat) ) ;margin of sales difference in stock and actual sales is 10% of the stock
-    let sales-deviation-meat (stock-meat - sales-meat) ;how much did the actual sales deviate from the available stock, can be positive or negative
-    let margin-distance abs (accepted-sales-difference-meat - sales-deviation-meat) ;how far is the actual sale from the accepted deviation for sales
-    let stock-change (margin-distance * (nr-products / 10)) ;how much the stock will change, in case the deviation of sales is larger than the accepted deviation for sales
+    if initial-stock-meat != 0 [
+
+    let nr-products length product-selection ;number of products a food outlet offers
+    let threshold-sales-increase round ( ( 0.9 * initial-stock-meat) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
+    let threshold-sales-decrease round ( ( 0.8 * initial-stock-meat) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
+    let percentage-sold ( (sales-meat / initial-stock-meat) * 100 ) ;calculate what percentage of the stock is sold
+    let lower-margin-sales abs (threshold-sales-decrease - sales-meat) ;how much did the actual sales deviate from the threshold-sales, a number set absolute 6
+    let upper-margin-sales abs (threshold-sales-increase - sales-meat) ;3
 
 
-    ;this whole procedure updates the meat-stock. QUESTION can i create a function that does the same for fish, vegetarian and vegan?
-    (ifelse (abs sales-deviation-meat) > accepted-sales-difference-meat = true [
 
-      (ifelse sales-deviation-meat >= 0 [
-        set stock-meat round ( (stock-meat + stock-change) )
+    (ifelse percentage-sold < threshold-sales-decrease [
+      set stock-meat initial-stock-meat - (lower-margin-sales * (nr-products / 10))
 
-        ]
-        sales-deviation-meat < 0 [
-          let monitor-stock-meat round ( (stock-meat - stock-change) )
-          if monitor-stock-meat <= 0 [set stock-meat 0]
-          if monitor-stock-meat > 0 [set stock-meat monitor-stock-meat]
+    ]
 
-        ]
-        ;if the food outlet cannot determine the difference in sales and stock
-        [print (list who "I cannot determine if I gained or lost")]
-      )
-
-        ]
-
-      (abs sales-deviation-meat) > accepted-sales-difference-meat = false [
-        ;do nothing -> just keep your current stock
+    percentage-sold > threshold-sales-increase [
+      set stock-meat initial-stock-meat + (upper-margin-sales * (nr-products / 10))
+          print stock-meat
       ]
 
-        ;if food outlet cannot determine if his sales margin has been exceeded
-        [print (list who "I cannot determine my sales margin of meat")]
+        percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
+          set stock-meat initial-stock-meat
+        ]
 
+      ;if something goes wrong
+      [print (list who "I cannot update my stock!")]
       )
+
+    ]
+
+
+
 
     ]
 
@@ -1181,11 +1367,11 @@ end
 GRAPHICS-WINDOW
 377
 10
-990
-624
+1063
+697
 -1
 -1
-18.333333333333332
+20.55
 1
 10
 1
@@ -1277,7 +1463,7 @@ INPUTBOX
 155
 389
 current-seed
--6.06525875E8
+9.613228E7
 1
 0
 Number
@@ -1289,7 +1475,7 @@ SWITCH
 363
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -1433,7 +1619,7 @@ p-me
 p-me
 0
 1
-0.52
+1.0
 0.01
 1
 NIL
@@ -1448,7 +1634,7 @@ p-fi
 p-fi
 0
 1
-0.26
+0.0
 0.01
 1
 NIL
@@ -1463,7 +1649,7 @@ p-vt
 p-vt
 0
 1
-0.17
+0.0
 0.01
 1
 NIL
@@ -1478,7 +1664,7 @@ p-vn
 p-vn
 0
 1
-0.13
+0.0
 0.01
 1
 NIL
@@ -1493,7 +1679,7 @@ mean-family-size
 mean-family-size
 0
 10
-2.0
+4.0
 1
 1
 NIL
@@ -1915,8 +2101,8 @@ SLIDER
 initial-nr-food-outlets
 initial-nr-food-outlets
 0
-100
-5.0
+10
+1.0
 1
 1
 NIL
@@ -1931,7 +2117,7 @@ food-outlet-service-area
 food-outlet-service-area
 0
 16
-10.0
+16.0
 1
 1
 NIL
@@ -1989,6 +2175,55 @@ PENS
 "pen-1" 1.0 0 -2064490 true "" "plot median-fish-stock"
 "pen-2" 1.0 0 -4079321 true "" "plot median-vegetarian-stock"
 "pen-3" 1.0 0 -13840069 true "" "plot median-vegan-stock"
+
+SLIDER
+1624
+131
+1796
+164
+lower-margin
+lower-margin
+0
+1
+0.8
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1623
+170
+1795
+203
+upper-margin
+upper-margin
+0
+1
+0.9
+0.01
+1
+NIL
+HORIZONTAL
+
+PLOT
+1196
+297
+1396
+447
+meat stock 187
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot [stock-meat] of food-outlet 187"
+"pen-1" 1.0 0 -7500403 true "" "plot [stock-fish] of food-outlet 187"
 
 @#$#@#$#@
 ## WHAT IS IT?
