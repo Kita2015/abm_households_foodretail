@@ -79,6 +79,7 @@ potential-costumers
 ;  initial-stock-vegetarian
 ;  initial-stock-vegan
   stock-table
+  no-sales-count
 ;  stock-meat
 ;  stock-fish
 ;  stock-vegetarian
@@ -125,7 +126,7 @@ to setup-globals
   set diet-list (list (list "meat" p-me ) (list  "fish" p-fi ) (list "vegetarian" p-vt ) (list "vegan" p-vn ))
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set income-levels (list (list "low" p-low) (list "middle" p-middle) (list "high" p-high))
-  set product-list (list (list "meat" value-shelf-space-meat) (list "fish" value-shelf-space-fish) (list "vegetarian" value-shelf-space-vegetarian) (list "vegan" value-shelf-space-vegan) )
+  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) )
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -232,12 +233,10 @@ to setup-food-outlets
     set color 25
     set size 1
     ;food-outlet counts number of persons in certain radius
-    let my-service-area 1 + food-outlet-service-area
-    set potential-costumers count persons in-radius my-service-area
+    set potential-costumers count persons in-radius food-outlet-service-area
+
     ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
     let population-fraction (potential-costumers / count persons)
-
-
     let nr-products "none"
 
     ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
@@ -275,6 +274,7 @@ to setup-food-outlets
       table:put stock-table diets table:get initial-stock-table diets
     ]
 
+    set no-sales-count 0
     set label product-selection
 
   ]
@@ -301,6 +301,7 @@ to go
   check-sales
   update-stock
   visualization
+  prepare-sales-reporter
 
 
   tick
@@ -471,16 +472,6 @@ end
 
 to select-meal ;person procedure
 
-;  ask households [
-;    ifelse empty-house? = true [
-;      ;do not run this procedure
-;    ]
-;
-;    ;empty-house = false
-;    ;run this procedure
-;    [
-
-
       ask persons with [is-cook? = true]  [
 
         (ifelse meal-selection = "status-based" [
@@ -545,7 +536,7 @@ to select-meal ;person procedure
 
             ;;procedure to select meal based on data, converted to a chance of choosing a particular type of protein: meat, fish, dairy + eggs, vegetable protein
 
-            let meal-list (list (list "meat" p-me-cons ) (list  "fish" p-fi-cons ) (list "vegetarian" p-vt-cons ) (list "vegan" p-vn-cons ))
+            let meal-list (list (list "meat" 0.9 ) (list  "fish" 0.3 ) (list "vegetarian" 0.15 ) (list "vegan" 0.05 ))
             let chosen-meal first rnd:weighted-one-of-list meal-list [ [p] -> last p ]
 
             set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
@@ -732,8 +723,7 @@ to select-meal ;person procedure
 
 
       ]
-;    ]
-;  ]
+
 
 
 
@@ -1065,243 +1055,140 @@ end
 
 to check-sales ;food-outlet procedure
 
-;  ;determine sales
-;  ask food-outlets [
-;
-;    ;print (list who sales)
-;
-;    ;first check total sales -> if the supermarket did not sell enough products, it will go out of business and hatch a new supermarket with random stock
-;
-;    let total-sales length sales
-;    let fraction-sold total-sales / potential-costumers
-;
-;    (ifelse total-sales >= 1 [
-;      ;do nothing - stay in business
-;      ]
-;
-;      total-sales < 1 [ ;before going out of business, create a new supermarket with randomly selected stock
-;        hatch 1 [
-;          move-to one-of patches with [not any? turtles-here]
-;
-;          ;provide new supermarket with another assortment and reset all stocks
-;          let population-fraction (potential-costumers / count persons)
-;          let nr-products "none"
-;
-;          ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
-;          (ifelse population-fraction <= 0.25 [
-;            set nr-products 1
-;            ]
-;            population-fraction > 0.25 and population-fraction <= 0.5 [
-;              set nr-products 2
-;            ]
-;            population-fraction > 0.25 and population-fraction <= 0.75 [
-;              set nr-products 3
-;            ]
-;            population-fraction > 0.75 [
-;              set nr-products 4
-;            ]
-;            ;if calculation of population-fraction did not go right
-;            [print (list who "I cannot calculate how many products I will offer to my costumers")]
-;          )
-;
-;          set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
-;
-;          ;food outlets determine for each product in their product-selection, how much of this product is in stock
-;
-;
-;          (ifelse member? "meat" product-selection = true [
-;            set initial-stock-meat round ( (potential-costumers / nr-products) )
-;            ]
-;            member? "meat" product-selection = false [
-;              set initial-stock-meat 0
-;            ]
-;            ;if product-selection goes wrong
-;            [print (list who "I cannot set my meat stock")]
-;          )
-;
-;          ;set fish stock
-;
-;          (ifelse member? "fish" product-selection = true [
-;            set initial-stock-fish round ( (potential-costumers / nr-products) )
-;            ]
-;            member? "fish" product-selection = false [
-;              set initial-stock-fish 0
-;            ]
-;            ;if product-selection goes wrong
-;            [print (list who "I cannot set my fish stock")]
-;          )
-;
-;          ;set vegetarian stock
-;          (ifelse member? "vegetarian" product-selection = true [
-;            set initial-stock-vegetarian round ( (potential-costumers / nr-products) )
-;            ]
-;            member? "vegetarian" product-selection = false [
-;              set initial-stock-vegetarian 0
-;            ]
-;            ;if product-selection goes wrong
-;            [print (list who "I cannot set my vegetarian stock")]
-;          )
-;
-;          ;set vegan stock
-;          (ifelse member? "vegan" product-selection = true [
-;            set initial-stock-vegan round ( (potential-costumers / nr-products) )
-;            ]
-;            member? "vegan" product-selection = false [
-;              set initial-stock-vegan 0
-;            ]
-;            ;if product-selection goes wrong
-;            [print (list who "I cannot set my vegan stock")]
-;          )
-;
-;
-;
-;          set stock-meat initial-stock-meat
-;          set stock-fish initial-stock-fish
-;          set stock-vegetarian initial-stock-vegetarian
-;          set stock-vegan initial-stock-vegan
-;          set sales-meat 0
-;          set sales-fish 0
-;          set sales-vegetarian 0
-;          set sales-vegan 0
-;          set sales []
-;          set label product-selection
-;
-;          ;end of providing new supermarket with new stock and resetting stocks
-;
-;        ]
-;        die ;supermarket goes out of business
-;      ]
-;
-;      ;if the food outlet cannot decide if it sold enough products to stay in business
-;      [print (list who "I cannot decide if I sold enough to stay in business")]
-;    )
-;
-;
-;
-;
-;    let freq-table table:counts sales ;count how often each product is sold
-;                                      ;print freq-table
-;                                      ;print sales
-;    let sold-products table:keys freq-table ;determine which products have been sold
-;                                            ;print sold-products
-;
-;    ;check meat sales
-;
-;    let check-meat member? "meat" sold-products ;sold-products is a list
-;                                                ;print check-meat
-;
-;    (ifelse check-meat = true [
-;      set sales-meat table:get freq-table "meat"
-;
-;      ]
-;      check-meat = false [
-;        set sales-meat 0
-;      ]
-;      ;if the food outlet cannot determine if the product was sold
-;      [print (list who "I do not know if meat was sold")]
-;    )
-;
-;    ;check fish sales
-;
-;    let check-fish member? "fish" sold-products ;sold-products is a list
-;
-;    (ifelse check-fish = true [
-;      set sales-fish table:get freq-table "fish"
-;
-;      ]
-;      check-fish = false [
-;        set sales-fish 0
-;      ]
-;      ;if the food outlet cannot determine if the product was sold
-;      [print (list who "I do not know if fish was sold")]
-;    )
-;
-;    ;check vegetarian sales
-;
-;    let check-vegetarian member? "vegetarian" sold-products ;sold-products is a list
-;
-;    (ifelse check-vegetarian = true [
-;      set sales-vegetarian table:get freq-table "vegetarian"
-;
-;      ]
-;      check-vegetarian = false [
-;        set sales-vegetarian 0
-;      ]
-;      ;if the food outlet cannot determine if the product was sold
-;      [print (list who "I do not know if vegetarian was sold")]
-;    )
-;
-;    ;check vegan sales
-;
-;    let check-vegan member? "vegan" sold-products ;sold-products is a list
-;
-;    (ifelse check-vegan = true [
-;      set sales-vegan table:get freq-table "vegan"
-;
-;      ]
-;      check-vegan = false [
-;        set sales-vegan 0
-;      ]
-;      ;if the food outlet cannot determine if the product was sold
-;      [print (list who "I do not know if vegan was sold")]
-;    )
-;
-;  ]
+  ;determine sales
+  ask food-outlets [
 
+    ;print (list who sales)
+
+    ;first check total sales -> if the supermarket did not sell enough products, it will go out of business and hatch a new supermarket with random stock
+
+    let total-sales 0
+
+    foreach diets-list [ diets ->
+      let sales-product table:get sales-table diets
+      set total-sales total-sales + sales-product
+    ]
+
+    (ifelse total-sales = 0 [
+      set no-sales-count no-sales-count + 1
+      ]
+
+      total-sales != 0 [
+        set no-sales-count 0
+      ]
+
+      ;if sales were not counted
+      [show "I could not determine my total sales"]
+    )
+
+
+    ;if the supermarket has had no sales for several weeks, it will go out of business
+    (ifelse no-sales-count <= no-sales-threshold [
+      ;do nothing - stay in business
+      ]
+
+      no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
+        hatch 1 [
+          move-to one-of patches with [not any? turtles-here]
+
+          ;new supermarket is provided with the same attributes as the supermarket that went out of business, except for stock
+          ;provide new supermarket with another assortment and reset all stocks
+
+          ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
+          let population-fraction (potential-costumers / count persons)
+          let nr-products "none"
+
+          ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
+          (ifelse population-fraction <= 0.25 [
+            set nr-products 1
+            ]
+            population-fraction > 0.25 and population-fraction <= 0.5 [
+              set nr-products 2
+            ]
+            population-fraction > 0.25 and population-fraction <= 0.75 [
+              set nr-products 3
+            ]
+            population-fraction > 0.75 [
+              set nr-products 4
+            ]
+            ;if calculation of population-fraction did not go right
+            [print (list who "I cannot calculate how many products I will offer to my costumers")]
+          )
+
+          set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
+
+          ;food outlets determine for each product in their product-selection, how much of this product is in stock
+
+          set initial-stock-table table:make
+          set sales-table table:make
+          set stock-table table:make
+
+          foreach diets-list [ diets ->
+            table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+              round (potential-costumers / nr-products)
+            ] [
+              0
+            ]
+            table:put sales-table diets 0
+            table:put stock-table diets table:get initial-stock-table diets
+          ]
+
+          set no-sales-count 0
+          set label product-selection
+        ]
+        die ;supermarket goes out of business
+      ]
+
+      ;if the food outlet cannot decide if it sold enough products to stay in business
+      [print (list who "I cannot decide if I sold enough to stay in business")]
+    )
+  ]
 
 end
 
 to update-stock
 
-;  ask food-outlets [
-;
-;    ;set new stock: current-stock +/- stock-change
-;    ;stock-change: food outlet size (nr_products) * distance from margin
-;    ;distance from margin: abs (accepted-sales-difference - sales-deviation)
-;    ;hard-coded assumption: threshold to increase stock is 90% of stock per product
-;   ; hard-coded assumption 2: threshold to decrease stock is 80% of stock per product
-;    ;hard-coded assumption 3: threshold to go out of business is 60% of total number of products
-;
-;
-;
-;    if initial-stock-meat != 0 [
-;
-;    let nr-products length product-selection ;number of products a food outlet offers
-;    let threshold-sales-increase round ( ( 0.9 * initial-stock-meat) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
-;    let threshold-sales-decrease round ( ( 0.8 * initial-stock-meat) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
-;    let percentage-sold ( (sales-meat / initial-stock-meat) * 100 ) ;calculate what percentage of the stock is sold
-;    let lower-margin-sales abs (threshold-sales-decrease - sales-meat) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
-;    let upper-margin-sales abs (threshold-sales-increase - sales-meat) ;
-;
-;
-;
-;    (ifelse percentage-sold < threshold-sales-decrease [
-;      set stock-meat initial-stock-meat - (lower-margin-sales * (nr-products / 10))
-;
-;    ]
-;
-;    percentage-sold > threshold-sales-increase [
-;      set stock-meat initial-stock-meat + (upper-margin-sales * (nr-products / 10))
-;          ;print stock-meat
-;      ]
-;
-;        percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
-;          set stock-meat initial-stock-meat
-;        ]
-;
-;      ;if something goes wrong
-;      [print (list who "I cannot update my stock!")]
-;      )
-;
-;    ]
-;
-;    set initial-stock-meat stock-meat
-;
-;
-;
-;
-;    ]
+  ask food-outlets [
 
+    foreach diets-list [ diets ->
+
+      let initial-stock-diet (table:get initial-stock-table diets)
+      let sales-diet (table:get sales-table diets)
+      ;show (list sales-diet diets)
+
+      if (initial-stock-diet) != 0 [
+
+        ;calculate how the actual sales of each product relates to the margins set for changing the stock
+        let nr-products length product-selection ;number of products a food outlet offers
+        let threshold-sales-increase round ( ( 0.9 * initial-stock-diet) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
+        let threshold-sales-decrease round ( ( 0.8 * initial-stock-diet) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
+        let percentage-sold ( (sales-diet / initial-stock-diet) * 100 ) ;calculate what percentage of the stock is sold
+        let lower-margin-sales abs (threshold-sales-decrease - sales-diet) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
+        let upper-margin-sales abs (threshold-sales-increase - sales-diet) ;
+        let shop-size-factor (nr-products / 10)
+
+        (ifelse percentage-sold < threshold-sales-decrease [ ;if sales was below the lower margin sales threshold, reduce the stock
+          table:put stock-table diets round ( (initial-stock-diet - (lower-margin-sales * shop-size-factor)) )
+          ]
+
+          percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, reduce the stock
+            table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
+          ]
+
+          percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
+            table:put stock-table diets table:get initial-stock-table diets
+          ]
+
+          ;if something goes wrong
+          [print (list who "I cannot update my stock!")]
+        )
+        ;show stock-table
+
+      ]
+
+      table:put initial-stock-table diets table:get stock-table diets
+    ]
+  ]
 
 end
 
@@ -1353,6 +1240,26 @@ to visualization
 
 end
 
+to prepare-sales-reporter
+
+
+;  ask food-outlets [
+;
+;    let report-sales-table table:make
+;    let added-sales 0
+;    show sales-table
+;
+;    foreach product-selection [ diets ->
+;      let sales-outlet table:get sales-table diets
+;      set added-sales (table:get report-sales-table diets + sales-outlet)
+;      show added-sales
+;      table:put report-sales-table diets added-sales
+;    ]
+;    show report-sales-table
+;  ]
+
+
+end
 
 
 ;;;;;;;;;;;;;;;
@@ -1376,7 +1283,8 @@ to-report diet-variety-networks
 end
 
 ;to-report average-meat-sales
-;  report mean [sales-meat] of food-outlets
+;  let meat-sales table:get sales-table meat
+;  report mean [meat-sales] of food-outlets
 ;end
 ;
 ;to-report average-fish-sales
@@ -1484,7 +1392,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-21.0
+36.0
 5
 1
 NIL
@@ -1508,21 +1416,21 @@ NIL
 1
 
 INPUTBOX
-0
-329
-155
-389
+2
+399
+157
+459
 current-seed
-1.246866515E9
+6.3321721E8
 1
 0
 Number
 
 SWITCH
-162
-330
-275
-363
+164
+401
+277
+434
 fixed-seed?
 fixed-seed?
 0
@@ -1592,10 +1500,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 SLIDER
-188
-561
-361
-594
+190
+631
+363
+664
 max-cs-meat
 max-cs-meat
 0
@@ -1607,10 +1515,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-185
-602
-358
-635
+187
+672
+360
+705
 max-cs-fish
 max-cs-fish
 0
@@ -1622,10 +1530,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-188
-644
-361
-677
+190
+714
+363
+747
 max-cs-veget
 max-cs-veget
 0
@@ -1637,10 +1545,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-188
-684
-361
-717
+190
+754
+363
+787
 max-cs-vegan
 max-cs-vegan
 0
@@ -1652,20 +1560,20 @@ NIL
 HORIZONTAL
 
 CHOOSER
-1
-416
-141
-461
+3
+486
+143
+531
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
 0
 
 SLIDER
-190
-90
-363
-123
+3
+589
+176
+622
 p-me
 p-me
 0
@@ -1677,10 +1585,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-130
-363
-163
+3
+629
+176
+662
 p-fi
 p-fi
 0
@@ -1692,10 +1600,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-170
-363
-203
+3
+669
+176
+702
 p-vt
 p-vt
 0
@@ -1707,10 +1615,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-187
-212
-360
-245
+0
+711
+173
+744
 p-vn
 p-vn
 0
@@ -1752,10 +1660,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-151
-457
-324
-490
+186
+520
+359
+553
 meal-quality-variance
 meal-quality-variance
 0
@@ -1767,20 +1675,20 @@ NIL
 HORIZONTAL
 
 CHOOSER
-0
-466
-139
-511
+2
+536
+141
+581
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
-1
+0
 
 SWITCH
-7
-253
-120
-286
+4
+280
+117
+313
 friendships?
 friendships?
 1
@@ -1793,76 +1701,6 @@ TEXTBOX
 1665
 198
 LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
-10
-0.0
-1
-
-SLIDER
-6
-561
-178
-594
-p-me-cons
-p-me-cons
-0
-1
-0.71
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-603
-177
-636
-p-fi-cons
-p-fi-cons
-0
-1
-0.71
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-4
-642
-176
-675
-p-vt-cons
-p-vt-cons
-0
-1
-0.7
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-3
-680
-175
-713
-p-vn-cons
-p-vn-cons
-0
-1
-0.41
-0.01
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-15
-530
-182
-555
-Data-based sliders\nkcal/person/day)
 10
 0.0
 1
@@ -1904,15 +1742,15 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram(diet-variety-networks)"
 
 SLIDER
-151
-416
-324
-449
+186
+479
+359
+512
 collectivism-dim
 collectivism-dim
 0
 1
-0.6
+0.9
 0.01
 1
 NIL
@@ -1959,10 +1797,10 @@ Protein supply (g/person/day)
 1
 
 SWITCH
-126
-254
-246
-287
+123
+281
+243
+314
 dynamic-cs?
 dynamic-cs?
 1
@@ -1985,10 +1823,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-151
-499
-324
-532
+186
+562
+359
+595
 status-increment
 status-increment
 0
@@ -2010,94 +1848,34 @@ INITIALIZATION
 1
 
 TEXTBOX
-194
-542
-331
-560
+196
+612
+333
+630
 Quality-based sliders
 10
 0.0
 1
 
 TEXTBOX
-7
-392
-144
-410
+9
+462
+146
+480
 SCENARIOS
 10
 0.0
 1
 
 TEXTBOX
-7
-306
-144
-324
+9
+376
+146
+394
 RUN CONTROLS
 10
 0.0
 1
-
-SLIDER
-1545
-251
-1720
-284
-value-shelf-space-meat
-value-shelf-space-meat
-0
-1
-0.49
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1545
-291
-1718
-324
-value-shelf-space-fish
-value-shelf-space-fish
-0
-1
-0.37
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1544
-333
-1722
-366
-value-shelf-space-vegetarian
-value-shelf-space-vegetarian
-0
-1
-0.11
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1544
-374
-1722
-407
-value-shelf-space-vegan
-value-shelf-space-vegan
-0
-1
-0.04
-0.01
-1
-NIL
-HORIZONTAL
 
 SLIDER
 1546
@@ -2145,25 +1923,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-192
-52
-364
-85
+188
+91
+360
+124
 initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-2.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-184
-294
-359
-327
+186
+135
+361
+168
 food-outlet-service-area
 food-outlet-service-area
 0
@@ -2175,10 +1953,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-168
-368
-343
-401
+4
+320
+179
+353
 food-outlet-interaction?
 food-outlet-interaction?
 0
@@ -2256,6 +2034,31 @@ upper-margin
 1
 NIL
 HORIZONTAL
+
+SLIDER
+186
+174
+358
+207
+no-sales-threshold
+no-sales-threshold
+0
+365
+360.0
+10
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+14
+256
+164
+274
+SWITCHES
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
