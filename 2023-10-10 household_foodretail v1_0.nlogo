@@ -67,19 +67,22 @@ households-own [
 food-outlets-own [
 potential-costumers
   product-selection
-  sales-meat
-  sales-fish
-  sales-vegetarian
-  sales-vegan
+  sales-table
+;  sales-meat
+;  sales-fish
+;  sales-vegetarian
+;  sales-vegan
   sales
-  initial-stock-meat
-  initial-stock-fish
-  initial-stock-vegetarian
-  initial-stock-vegan
-  stock-meat
-  stock-fish
-  stock-vegetarian
-  stock-vegan
+  initial-stock-table
+;  initial-stock-meat
+;  initial-stock-fish
+;  initial-stock-vegetarian
+;  initial-stock-vegan
+  stock-table
+;  stock-meat
+;  stock-fish
+;  stock-vegetarian
+;  stock-vegan
 ;  business-orientation
 ;  susceptibility-to-demand
 ]
@@ -258,66 +261,24 @@ to setup-food-outlets
 
     ;food outlets determine for each product in their product-selection, how much of this product is in stock
 
-    ;set meat stock
+    set initial-stock-table table:make
+    set sales-table table:make
+    set stock-table table:make
 
-    (ifelse member? "meat" product-selection = true [
-      set initial-stock-meat round ( (potential-costumers / nr-products) )
+    foreach diets-list [ diets ->
+      table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+        round (potential-costumers / nr-products)
+      ] [
+        0
       ]
-      member? "meat" product-selection = false [
-        set initial-stock-meat 0
-      ]
-      ;if product-selection goes wrong
-      [print (list who "I cannot set my meat stock")]
-    )
+      table:put sales-table diets 0
+      table:put stock-table diets table:get initial-stock-table diets
+    ]
 
-    ;set fish stock
-
-    (ifelse member? "fish" product-selection = true [
-      set initial-stock-fish round ( (potential-costumers / nr-products) )
-      ]
-      member? "fish" product-selection = false [
-        set initial-stock-fish 0
-      ]
-      ;if product-selection goes wrong
-      [print (list who "I cannot set my fish stock")]
-    )
-
-    ;set vegetarian stock
-    (ifelse member? "vegetarian" product-selection = true [
-      set initial-stock-vegetarian round ( (potential-costumers / nr-products) )
-      ]
-      member? "vegetarian" product-selection = false [
-        set initial-stock-vegetarian 0
-      ]
-      ;if product-selection goes wrong
-      [print (list who "I cannot set my vegetarian stock")]
-    )
-
-    ;set vegan stock
-    (ifelse member? "vegan" product-selection = true [
-      set initial-stock-vegan round ( (potential-costumers / nr-products) )
-      ]
-      member? "vegan" product-selection = false [
-        set initial-stock-vegan 0
-      ]
-      ;if product-selection goes wrong
-      [print (list who "I cannot set my vegan stock")]
-    )
-
-
-    set stock-meat initial-stock-meat
-    set stock-fish initial-stock-fish
-    set stock-vegetarian initial-stock-vegetarian
-    set stock-vegan initial-stock-vegan
-    set sales-meat 0
-    set sales-fish 0
-    set sales-vegetarian 0
-    set sales-vegan 0
-    set sales []
     set label product-selection
 
-
   ]
+
 end
 
 ;to setup-foods
@@ -390,11 +351,9 @@ to closure-of-tick
   ]
 
   ask food-outlets [
-    set sales-meat 0
-    set sales-fish 0
-    set sales-vegetarian 0
-    set sales-vegan 0
-    set sales []
+    foreach diets-list [ diets ->
+      table:put sales-table diets 0
+    ]
   ]
 
 end
@@ -791,75 +750,83 @@ to buy-groceries
 
   ;cooks select their supermarket; in this version a random selection
   ask persons with [my-supermarket = "none" and meal-i-cooked != "none"] [
-    ;print meal-i-cooked
     set my-supermarket min-one-of food-outlets [distance myself] ;persons go to the closest supermarket
+    let requested-product meal-i-cooked
 
     let available-products "none"
-    let products-list []
-    let stocks-list []
-    let stock-name-list []
-    let product-stock-list []
-    let stock-name-stocks-list []
 
     ask my-supermarket [
       set available-products product-selection
-
-      set products-list (list "meat" "fish" "vegetarian" "vegan")
-      set stocks-list (list stock-meat stock-fish stock-vegetarian stock-vegan)
-      set stock-name-list (list "stock-meat" "stock-fish" "stock-vegetarian" "stock-vegan")
-      set product-stock-list table:from-list (map list stocks-list products-list)
-      set stock-name-stocks-list table:from-list (map list stocks-list stock-name-list)
-
     ]
 
     let available? member? meal-i-cooked available-products ;check if food outlet sells required product
-    ;print available?
-   ;print meal-i-cooked
     let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
-   let requested-product meal-i-cooked
-    ;print (list meal-i-cooked requested-product)
 
-    (ifelse available? = false [
-      buy-alternative-groceries
-    ]
-    available? = true [
+    let stock-sufficient? "none"
 
-    ;check if food outlet has required product still in stock for the quantity the cook needs
+     ;check if food outlet has required product still in stock for the quantity the cook needs
     ask my-supermarket [
 
-      (ifelse requested-product = "meat" [
-        set stock-meat stock-meat - nr-dinner-guests
-        ]
-       requested-product = "fish" [
-          set stock-fish stock-fish - nr-dinner-guests
-        ]
-       requested-product = "vegetarian" [
-          set stock-vegetarian stock-vegetarian - nr-dinner-guests
-        ]
-       requested-product = "vegan" [
-          set stock-vegan stock-vegan - nr-dinner-guests
-        ]
-        ;if the cook was not able to "buy" the product
-        [print (list who "I cannot buy my requested product")]
-      )
+        let current-stock (table:get stock-table requested-product)
+
+        (ifelse current-stock >= nr-dinner-guests [
+          set stock-sufficient? true
+          ]
+          current-stock < nr-dinner-guests [
+            set stock-sufficient? false
+          ]
+          ;if something goes wrong
+          [show "I cannot determine if the shop has sufficient stock of my product"]
+        )
+
+      ]
+
+    ;show (list nr-dinner-guests requested-product stock-sufficient?)
+
+
+    (ifelse available? = false or stock-sufficient? = false [
+      buy-alternative-groceries
     ]
 
-    ]
+    available? = true [
+
+
+    ask my-supermarket [
+          ;show stock-table
+          foreach diets-list [ diets ->
+
+            let current-stock (table:get stock-table diets)
+            ;show stock-table
+            (ifelse diets = requested-product [
+              table:put stock-table diets ( current-stock - nr-dinner-guests )
+              ]
+              diets != requested-product [
+                table:put stock-table diets current-stock
+              ]
+              ;if something goes wrong
+              [show "I cannot reset my stock"]
+            )
+          ]
+
+          ;show stock-table
+        ]
+      ]
+
     ;if cook cannot determine if a product is available
     [print (list who "I cannot determine if the product I want to purchase is available")]
     )
 
 
+
   ;the cook buys the product and adds his purchase to the sales of the food outlet
     if meal-i-cooked != "none" [
+      ;show (list requested-product nr-dinner-guests)
       ask my-supermarket [
-        repeat nr-dinner-guests [
-          set sales fput requested-product sales ;add to the sales list of the food outlet the product bought by the cook
+        let current-sales (table:get sales-table requested-product)
+        table:put sales-table requested-product (current-sales + nr-dinner-guests)
 
-        ]
       ]
     ]
-;print (list who meal-i-cooked)
   ]
 
 
@@ -869,82 +836,87 @@ end
 
 to buy-alternative-groceries
 
-  ;set meal-i-cooked "none" ;to indicate that the cook has not bought anything yet and is now looking for an alternative
-
   let nr-dinner-guests count my-dinner-guests ;determine (again) for how many people I need to buy ingredients
-
-    let products-list [] ;available products in store, now based on diets-list
-    let stocks-list [] ;list of stock per potentially available product in store
-    let stock-name-list [] ;list of attributes names for stocks of potentially available products
-    let product-stock-list [] ;table (from lists) combining the available products and stocks
-    let stock-name-stocks-list [] ;table (from lists) combining the attribute stock names and stocks
-
-
-    ask my-supermarket [
-
-      ;create a table of product stock
-
-      set products-list diets-list
-      set stocks-list (list stock-meat stock-fish stock-vegetarian stock-vegan)
-      set stock-name-list (list "stock-meat" "stock-fish" "stock-vegetarian" "stock-vegan")
-      set product-stock-list table:from-list (map list stocks-list products-list)
-      set stock-name-stocks-list table:from-list (map list stocks-list stock-name-list)
-  ]
-
+  let alt-sales-list []
   ;select a product that has sufficient stock, or buy nothing
 
-          let my-alternative-stock max stocks-list ;select the highest stock number, assuming the cook buys whatever products is amply available
 
-          ;check if the alternative product has enough items in stock for the number of dinner guests
-  (ifelse my-alternative-stock >= nr-dinner-guests [
-    let my-alternative-product table:get product-stock-list my-alternative-stock ;if the alternative product can be bought for all dinner guests, buy this product
-    set meal-i-cooked my-alternative-product
-    let requested-product meal-i-cooked
-    ;print my-alternative-product
 
-    ;obtain stock-name of product bought so the product can be actually bought at the counter
-    let my-alternative-stock-name table:get stock-name-stocks-list my-alternative-stock
+     ;check if food outlet has required product still in stock for the quantity the cook needs
+  ask my-supermarket [
+    foreach diets-list [ diets ->
 
-    ask my-supermarket [
+      let current-stock (table:get stock-table diets)
 
-      (ifelse my-alternative-stock-name = "stock-meat" [
-        set stock-meat stock-meat - nr-dinner-guests
+      (ifelse current-stock >= nr-dinner-guests [
+
+          set alt-sales-list fput diets alt-sales-list
+
         ]
-        my-alternative-stock-name = "stock-fish" [
-          set stock-fish stock-fish - nr-dinner-guests
+        current-stock < nr-dinner-guests [
+          ;do nothing
         ]
-        my-alternative-stock-name = "stock-vegetarian" [
-          set stock-vegetarian stock-vegetarian - nr-dinner-guests
-        ]
-        my-alternative-stock-name = "stock-vegan" [
-          set stock-vegan stock-vegan - nr-dinner-guests
-        ]
-        ;if the cook was not able to choose an alternative product
-        [print (list who "I cannot select an alternative product")]
+        ;if something goes wrong
+        [show "I cannot determine for each product if it is sufficiently in stock"]
       )
-    ]
 
     ]
+    ;show alt-sales-list
+  ]
 
-    ;if the alternative product is not available in sufficient stock, do not buy anything
-    my-alternative-stock < nr-dinner-guests [
-      set meal-i-cooked "none"
-    ]
+; from those products reported true in temp-table, choose one, if available, otherwise do not buy anything
 
-    ;if testing for available products went wrong
-    [print (list who "I cannot determine if the product I want to purchase is available")]
-  )
+  let length-alt-sales-list length alt-sales-list
 
-;the cook actually buys product at the counter and the supermarket registers the ssales
-     let requested-product meal-i-cooked
+ (ifelse length-alt-sales-list != 0 [
+
+  let my-alternative-product one-of alt-sales-list
+  let requested-product my-alternative-product
+  set meal-i-cooked my-alternative-product
+
+
+  ;buy the alternative product
       ask my-supermarket [
+          ;show stock-table
+          foreach diets-list [ diets ->
 
-        repeat nr-dinner-guests [
-          set sales fput requested-product sales ;add to the sales list of the food outlet the product bought by the cook
+            let current-stock (table:get stock-table diets)
+            ;show stock-table
+            (ifelse diets = requested-product [
+              table:put stock-table diets ( current-stock - nr-dinner-guests )
+              ]
+              diets != requested-product [
+                table:put stock-table diets current-stock
+              ]
+              ;if something goes wrong
+              [show "I cannot reset my stock"]
+            )
+          ]
+
+          ;show stock-table
         ]
-      ]
 
-  ;print (list who meal-i-cooked)
+
+   ;the cook buys the product and adds his purchase to the sales of the food outlet
+    if meal-i-cooked != "none" [
+      ;show (list requested-product nr-dinner-guests)
+      ask my-supermarket [
+        let current-sales (table:get sales-table requested-product)
+        table:put sales-table requested-product (current-sales + nr-dinner-guests)
+
+      ]
+    ]
+    ]
+
+    length-alt-sales-list = 0 [
+    set meal-i-cooked "none"
+    ]
+
+    ;if the cook could not determine if there were any alternative products available
+    [show "I do not know if there are any alternative products available"]
+    )
+
+
 
 end
 
@@ -1093,242 +1065,242 @@ end
 
 to check-sales ;food-outlet procedure
 
-  ;determine sales
-  ask food-outlets [
-
-    ;print (list who sales)
-
-    ;first check total sales -> if the supermarket did not sell enough products, it will go out of business and hatch a new supermarket with random stock
-
-    let total-sales length sales
-    let fraction-sold total-sales / potential-costumers
-
-    (ifelse total-sales >= 1 [
-      ;do nothing - stay in business
-      ]
-
-      total-sales < 1 [ ;before going out of business, create a new supermarket with randomly selected stock
-        hatch 1 [
-          move-to one-of patches with [not any? turtles-here]
-
-          ;provide new supermarket with another assortment and reset all stocks
-          let population-fraction (potential-costumers / count persons)
-          let nr-products "none"
-
-          ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
-          (ifelse population-fraction <= 0.25 [
-            set nr-products 1
-            ]
-            population-fraction > 0.25 and population-fraction <= 0.5 [
-              set nr-products 2
-            ]
-            population-fraction > 0.25 and population-fraction <= 0.75 [
-              set nr-products 3
-            ]
-            population-fraction > 0.75 [
-              set nr-products 4
-            ]
-            ;if calculation of population-fraction did not go right
-            [print (list who "I cannot calculate how many products I will offer to my costumers")]
-          )
-
-          set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
-
-          ;food outlets determine for each product in their product-selection, how much of this product is in stock
-
-
-          (ifelse member? "meat" product-selection = true [
-            set initial-stock-meat round ( (potential-costumers / nr-products) )
-            ]
-            member? "meat" product-selection = false [
-              set initial-stock-meat 0
-            ]
-            ;if product-selection goes wrong
-            [print (list who "I cannot set my meat stock")]
-          )
-
-          ;set fish stock
-
-          (ifelse member? "fish" product-selection = true [
-            set initial-stock-fish round ( (potential-costumers / nr-products) )
-            ]
-            member? "fish" product-selection = false [
-              set initial-stock-fish 0
-            ]
-            ;if product-selection goes wrong
-            [print (list who "I cannot set my fish stock")]
-          )
-
-          ;set vegetarian stock
-          (ifelse member? "vegetarian" product-selection = true [
-            set initial-stock-vegetarian round ( (potential-costumers / nr-products) )
-            ]
-            member? "vegetarian" product-selection = false [
-              set initial-stock-vegetarian 0
-            ]
-            ;if product-selection goes wrong
-            [print (list who "I cannot set my vegetarian stock")]
-          )
-
-          ;set vegan stock
-          (ifelse member? "vegan" product-selection = true [
-            set initial-stock-vegan round ( (potential-costumers / nr-products) )
-            ]
-            member? "vegan" product-selection = false [
-              set initial-stock-vegan 0
-            ]
-            ;if product-selection goes wrong
-            [print (list who "I cannot set my vegan stock")]
-          )
-
-
-
-          set stock-meat initial-stock-meat
-          set stock-fish initial-stock-fish
-          set stock-vegetarian initial-stock-vegetarian
-          set stock-vegan initial-stock-vegan
-          set sales-meat 0
-          set sales-fish 0
-          set sales-vegetarian 0
-          set sales-vegan 0
-          set sales []
-          set label product-selection
-
-          ;end of providing new supermarket with new stock and resetting stocks
-
-        ]
-        die ;supermarket goes out of business
-      ]
-
-      ;if the food outlet cannot decide if it sold enough products to stay in business
-      [print (list who "I cannot decide if I sold enough to stay in business")]
-    )
-
-
-
-
-    let freq-table table:counts sales ;count how often each product is sold
-                                      ;print freq-table
-                                      ;print sales
-    let sold-products table:keys freq-table ;determine which products have been sold
-                                            ;print sold-products
-
-    ;check meat sales
-
-    let check-meat member? "meat" sold-products ;sold-products is a list
-                                                ;print check-meat
-
-    (ifelse check-meat = true [
-      set sales-meat table:get freq-table "meat"
-
-      ]
-      check-meat = false [
-        set sales-meat 0
-      ]
-      ;if the food outlet cannot determine if the product was sold
-      [print (list who "I do not know if meat was sold")]
-    )
-
-    ;check fish sales
-
-    let check-fish member? "fish" sold-products ;sold-products is a list
-
-    (ifelse check-fish = true [
-      set sales-fish table:get freq-table "fish"
-
-      ]
-      check-fish = false [
-        set sales-fish 0
-      ]
-      ;if the food outlet cannot determine if the product was sold
-      [print (list who "I do not know if fish was sold")]
-    )
-
-    ;check vegetarian sales
-
-    let check-vegetarian member? "vegetarian" sold-products ;sold-products is a list
-
-    (ifelse check-vegetarian = true [
-      set sales-vegetarian table:get freq-table "vegetarian"
-
-      ]
-      check-vegetarian = false [
-        set sales-vegetarian 0
-      ]
-      ;if the food outlet cannot determine if the product was sold
-      [print (list who "I do not know if vegetarian was sold")]
-    )
-
-    ;check vegan sales
-
-    let check-vegan member? "vegan" sold-products ;sold-products is a list
-
-    (ifelse check-vegan = true [
-      set sales-vegan table:get freq-table "vegan"
-
-      ]
-      check-vegan = false [
-        set sales-vegan 0
-      ]
-      ;if the food outlet cannot determine if the product was sold
-      [print (list who "I do not know if vegan was sold")]
-    )
-
-  ]
+;  ;determine sales
+;  ask food-outlets [
+;
+;    ;print (list who sales)
+;
+;    ;first check total sales -> if the supermarket did not sell enough products, it will go out of business and hatch a new supermarket with random stock
+;
+;    let total-sales length sales
+;    let fraction-sold total-sales / potential-costumers
+;
+;    (ifelse total-sales >= 1 [
+;      ;do nothing - stay in business
+;      ]
+;
+;      total-sales < 1 [ ;before going out of business, create a new supermarket with randomly selected stock
+;        hatch 1 [
+;          move-to one-of patches with [not any? turtles-here]
+;
+;          ;provide new supermarket with another assortment and reset all stocks
+;          let population-fraction (potential-costumers / count persons)
+;          let nr-products "none"
+;
+;          ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
+;          (ifelse population-fraction <= 0.25 [
+;            set nr-products 1
+;            ]
+;            population-fraction > 0.25 and population-fraction <= 0.5 [
+;              set nr-products 2
+;            ]
+;            population-fraction > 0.25 and population-fraction <= 0.75 [
+;              set nr-products 3
+;            ]
+;            population-fraction > 0.75 [
+;              set nr-products 4
+;            ]
+;            ;if calculation of population-fraction did not go right
+;            [print (list who "I cannot calculate how many products I will offer to my costumers")]
+;          )
+;
+;          set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
+;
+;          ;food outlets determine for each product in their product-selection, how much of this product is in stock
+;
+;
+;          (ifelse member? "meat" product-selection = true [
+;            set initial-stock-meat round ( (potential-costumers / nr-products) )
+;            ]
+;            member? "meat" product-selection = false [
+;              set initial-stock-meat 0
+;            ]
+;            ;if product-selection goes wrong
+;            [print (list who "I cannot set my meat stock")]
+;          )
+;
+;          ;set fish stock
+;
+;          (ifelse member? "fish" product-selection = true [
+;            set initial-stock-fish round ( (potential-costumers / nr-products) )
+;            ]
+;            member? "fish" product-selection = false [
+;              set initial-stock-fish 0
+;            ]
+;            ;if product-selection goes wrong
+;            [print (list who "I cannot set my fish stock")]
+;          )
+;
+;          ;set vegetarian stock
+;          (ifelse member? "vegetarian" product-selection = true [
+;            set initial-stock-vegetarian round ( (potential-costumers / nr-products) )
+;            ]
+;            member? "vegetarian" product-selection = false [
+;              set initial-stock-vegetarian 0
+;            ]
+;            ;if product-selection goes wrong
+;            [print (list who "I cannot set my vegetarian stock")]
+;          )
+;
+;          ;set vegan stock
+;          (ifelse member? "vegan" product-selection = true [
+;            set initial-stock-vegan round ( (potential-costumers / nr-products) )
+;            ]
+;            member? "vegan" product-selection = false [
+;              set initial-stock-vegan 0
+;            ]
+;            ;if product-selection goes wrong
+;            [print (list who "I cannot set my vegan stock")]
+;          )
+;
+;
+;
+;          set stock-meat initial-stock-meat
+;          set stock-fish initial-stock-fish
+;          set stock-vegetarian initial-stock-vegetarian
+;          set stock-vegan initial-stock-vegan
+;          set sales-meat 0
+;          set sales-fish 0
+;          set sales-vegetarian 0
+;          set sales-vegan 0
+;          set sales []
+;          set label product-selection
+;
+;          ;end of providing new supermarket with new stock and resetting stocks
+;
+;        ]
+;        die ;supermarket goes out of business
+;      ]
+;
+;      ;if the food outlet cannot decide if it sold enough products to stay in business
+;      [print (list who "I cannot decide if I sold enough to stay in business")]
+;    )
+;
+;
+;
+;
+;    let freq-table table:counts sales ;count how often each product is sold
+;                                      ;print freq-table
+;                                      ;print sales
+;    let sold-products table:keys freq-table ;determine which products have been sold
+;                                            ;print sold-products
+;
+;    ;check meat sales
+;
+;    let check-meat member? "meat" sold-products ;sold-products is a list
+;                                                ;print check-meat
+;
+;    (ifelse check-meat = true [
+;      set sales-meat table:get freq-table "meat"
+;
+;      ]
+;      check-meat = false [
+;        set sales-meat 0
+;      ]
+;      ;if the food outlet cannot determine if the product was sold
+;      [print (list who "I do not know if meat was sold")]
+;    )
+;
+;    ;check fish sales
+;
+;    let check-fish member? "fish" sold-products ;sold-products is a list
+;
+;    (ifelse check-fish = true [
+;      set sales-fish table:get freq-table "fish"
+;
+;      ]
+;      check-fish = false [
+;        set sales-fish 0
+;      ]
+;      ;if the food outlet cannot determine if the product was sold
+;      [print (list who "I do not know if fish was sold")]
+;    )
+;
+;    ;check vegetarian sales
+;
+;    let check-vegetarian member? "vegetarian" sold-products ;sold-products is a list
+;
+;    (ifelse check-vegetarian = true [
+;      set sales-vegetarian table:get freq-table "vegetarian"
+;
+;      ]
+;      check-vegetarian = false [
+;        set sales-vegetarian 0
+;      ]
+;      ;if the food outlet cannot determine if the product was sold
+;      [print (list who "I do not know if vegetarian was sold")]
+;    )
+;
+;    ;check vegan sales
+;
+;    let check-vegan member? "vegan" sold-products ;sold-products is a list
+;
+;    (ifelse check-vegan = true [
+;      set sales-vegan table:get freq-table "vegan"
+;
+;      ]
+;      check-vegan = false [
+;        set sales-vegan 0
+;      ]
+;      ;if the food outlet cannot determine if the product was sold
+;      [print (list who "I do not know if vegan was sold")]
+;    )
+;
+;  ]
 
 
 end
 
 to update-stock
 
-  ask food-outlets [
-
-    ;set new stock: current-stock +/- stock-change
-    ;stock-change: food outlet size (nr_products) * distance from margin
-    ;distance from margin: abs (accepted-sales-difference - sales-deviation)
-    ;hard-coded assumption: threshold to increase stock is 90% of stock per product
-   ; hard-coded assumption 2: threshold to decrease stock is 80% of stock per product
-    ;hard-coded assumption 3: threshold to go out of business is 60% of total number of products
-
-
-
-    if initial-stock-meat != 0 [
-
-    let nr-products length product-selection ;number of products a food outlet offers
-    let threshold-sales-increase round ( ( 0.9 * initial-stock-meat) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
-    let threshold-sales-decrease round ( ( 0.8 * initial-stock-meat) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
-    let percentage-sold ( (sales-meat / initial-stock-meat) * 100 ) ;calculate what percentage of the stock is sold
-    let lower-margin-sales abs (threshold-sales-decrease - sales-meat) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
-    let upper-margin-sales abs (threshold-sales-increase - sales-meat) ;
-
-
-
-    (ifelse percentage-sold < threshold-sales-decrease [
-      set stock-meat initial-stock-meat - (lower-margin-sales * (nr-products / 10))
-
-    ]
-
-    percentage-sold > threshold-sales-increase [
-      set stock-meat initial-stock-meat + (upper-margin-sales * (nr-products / 10))
-          ;print stock-meat
-      ]
-
-        percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
-          set stock-meat initial-stock-meat
-        ]
-
-      ;if something goes wrong
-      [print (list who "I cannot update my stock!")]
-      )
-
-    ]
-
-    set initial-stock-meat stock-meat
-
-
-
-
-    ]
+;  ask food-outlets [
+;
+;    ;set new stock: current-stock +/- stock-change
+;    ;stock-change: food outlet size (nr_products) * distance from margin
+;    ;distance from margin: abs (accepted-sales-difference - sales-deviation)
+;    ;hard-coded assumption: threshold to increase stock is 90% of stock per product
+;   ; hard-coded assumption 2: threshold to decrease stock is 80% of stock per product
+;    ;hard-coded assumption 3: threshold to go out of business is 60% of total number of products
+;
+;
+;
+;    if initial-stock-meat != 0 [
+;
+;    let nr-products length product-selection ;number of products a food outlet offers
+;    let threshold-sales-increase round ( ( 0.9 * initial-stock-meat) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
+;    let threshold-sales-decrease round ( ( 0.8 * initial-stock-meat) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
+;    let percentage-sold ( (sales-meat / initial-stock-meat) * 100 ) ;calculate what percentage of the stock is sold
+;    let lower-margin-sales abs (threshold-sales-decrease - sales-meat) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
+;    let upper-margin-sales abs (threshold-sales-increase - sales-meat) ;
+;
+;
+;
+;    (ifelse percentage-sold < threshold-sales-decrease [
+;      set stock-meat initial-stock-meat - (lower-margin-sales * (nr-products / 10))
+;
+;    ]
+;
+;    percentage-sold > threshold-sales-increase [
+;      set stock-meat initial-stock-meat + (upper-margin-sales * (nr-products / 10))
+;          ;print stock-meat
+;      ]
+;
+;        percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
+;          set stock-meat initial-stock-meat
+;        ]
+;
+;      ;if something goes wrong
+;      [print (list who "I cannot update my stock!")]
+;      )
+;
+;    ]
+;
+;    set initial-stock-meat stock-meat
+;
+;
+;
+;
+;    ]
 
 
 end
@@ -1403,37 +1375,37 @@ to-report diet-variety-networks
   report [network-diet-diversity] of persons
 end
 
-to-report average-meat-sales
-  report mean [sales-meat] of food-outlets
-end
-
-to-report average-fish-sales
-  report mean [sales-fish] of food-outlets
-end
-
-to-report average-vegetarian-sales
-  report mean [sales-vegetarian] of food-outlets
-end
-
-to-report average-vegan-sales
-  report mean [sales-vegan] of food-outlets
-end
-
-to-report median-meat-stock
-  report median [stock-meat] of food-outlets
-end
-
-to-report median-fish-stock
-  report median [stock-fish] of food-outlets
-end
-
-to-report median-vegetarian-stock
-  report median [stock-vegetarian] of food-outlets
-end
-
-to-report median-vegan-stock
-  report median [stock-vegan] of food-outlets
-end
+;to-report average-meat-sales
+;  report mean [sales-meat] of food-outlets
+;end
+;
+;to-report average-fish-sales
+;  report mean [sales-fish] of food-outlets
+;end
+;
+;to-report average-vegetarian-sales
+;  report mean [sales-vegetarian] of food-outlets
+;end
+;
+;to-report average-vegan-sales
+;  report mean [sales-vegan] of food-outlets
+;end
+;
+;to-report median-meat-stock
+;  report median [stock-meat] of food-outlets
+;end
+;
+;to-report median-fish-stock
+;  report median [stock-fish] of food-outlets
+;end
+;
+;to-report median-vegetarian-stock
+;  report median [stock-vegetarian] of food-outlets
+;end
+;
+;to-report median-vegan-stock
+;  report median [stock-vegan] of food-outlets
+;end
 
 
 
@@ -1512,7 +1484,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-36.0
+21.0
 5
 1
 NIL
@@ -1541,7 +1513,7 @@ INPUTBOX
 155
 389
 current-seed
-9.613228E7
+1.246866515E9
 1
 0
 Number
@@ -2181,7 +2153,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-3.0
+2.0
 1
 1
 NIL
