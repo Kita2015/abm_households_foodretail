@@ -28,6 +28,8 @@ globals [
   cooked-fish
   cooked-vegetarian
   cooked-vegan
+  report-sales-table
+  report-stock-table
 ]
 
 
@@ -53,6 +55,7 @@ persons-own [
   status
   at-home?
   my-supermarket
+  sorted-food-outlets
 ]
 
 households-own [
@@ -132,6 +135,13 @@ to setup-globals
   set cooked-fish 0
   set cooked-vegetarian 0
   set cooked-vegan 0
+  set report-sales-table table:make
+  set report-stock-table table:make
+
+  foreach diets-list [ diets ->
+      table:put report-sales-table diets 0
+      table:put report-stock-table diets 0
+    ]
 
 end
 
@@ -182,6 +192,7 @@ to setup-persons
     set cs-veget random-float max-cs-veget
     set cs-vegan random-float max-cs-vegan
     set my-supermarket "none"
+
   ]
 end
 
@@ -266,10 +277,11 @@ to setup-food-outlets
 
     foreach diets-list [ diets ->
       table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-        round (potential-costumers / nr-products)
+        round (potential-costumers / nr-products) * 1
       ] [
         0
       ]
+      show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
       table:put sales-table diets 0
       table:put stock-table diets table:get initial-stock-table diets
     ]
@@ -278,7 +290,9 @@ to setup-food-outlets
     set label product-selection
 
   ]
-
+  ask persons [
+    set sorted-food-outlets sort-on [distance myself] food-outlets
+  ]
 end
 
 ;to setup-foods
@@ -302,6 +316,7 @@ to go
   update-stock
   visualization
   prepare-sales-reporter
+  prepare-stock-reporter
 
 
   tick
@@ -332,6 +347,7 @@ to closure-of-tick
     set my-cook "nobody"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
+    ;set my-supermarket "none"
 
     let dinner-friends friendship-neighbors
     let dinner-members family-membership-neighbors
@@ -480,16 +496,13 @@ to select-meal ;person procedure
 
 
           let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
-          let vip-meal "none"
-          ask vip-guest [
-            set vip-meal [diet] of self ;ask guest with highest status to select meal
-          ]
+      let vip-meal [diet] of vip-guest
           set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
           ;show meal-i-cooked
 
 
           (ifelse food-outlet-interaction? = true [
-            buy-groceries
+            go-to-supermarket
             ]
             food-outlet-interaction? = false [
               ;just go on with the rest of the procedure
@@ -582,7 +595,7 @@ to select-meal ;person procedure
 
 
             (ifelse food-outlet-interaction? = true [
-              buy-groceries
+              go-to-supermarket
             ]
             food-outlet-interaction? = false [
               ;just go on with the rest of the procedure
@@ -733,14 +746,48 @@ to select-meal ;person procedure
 
 end
 
-to buy-groceries
+
+
+to go-to-supermarket
+
+  let bought? false
+
+  while [meal-i-cooked != "none" and not bought?] [
+
+    if my-supermarket = "none" [
+      select-supermarket
+    ]
+
+    if my-supermarket != "none" [
+      set bought? buy-groceries
+      ;show meal-i-cooked
+    ]
+  ]
+
+
+end
+
+to select-supermarket
+
+  ifelse empty? sorted-food-outlets [
+    set meal-i-cooked "none" ; starve!
+    set sorted-food-outlets sort-on [distance myself] food-outlets
+  ] [
+  ;show my-food-outlets
+   set my-supermarket first sorted-food-outlets
+   set sorted-food-outlets but-first sorted-food-outlets
+  ;show my-supermarket
+  ]
+
+end
+
+to-report buy-groceries
   ;all the cooks go buy ingredients at the supermarket
   ;if the ingredient is available, they will prepare the selected meal
   ;if the ingredient is NOT available, they will select another meal in the procedure buy-alternative-groceries
 
-  ;cooks select their supermarket; in this version a random selection
-  ask persons with [my-supermarket = "none" and meal-i-cooked != "none"] [
-    set my-supermarket min-one-of food-outlets [distance myself] ;persons go to the closest supermarket
+
+
     let requested-product meal-i-cooked
 
     let available-products "none"
@@ -749,7 +796,9 @@ to buy-groceries
       set available-products product-selection
     ]
 
+
     let available? member? meal-i-cooked available-products ;check if food outlet sells required product
+ ; show (word "My meal is \"" meal-i-cooked "\" options available are " available-products " and it is available? " available?)
     let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
 
     let stock-sufficient? "none"
@@ -758,6 +807,8 @@ to buy-groceries
     ask my-supermarket [
 
         let current-stock (table:get stock-table requested-product)
+
+ ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
 
         (ifelse current-stock >= nr-dinner-guests [
           set stock-sufficient? true
@@ -800,25 +851,31 @@ to buy-groceries
 
           ;show stock-table
         ]
+
+      ;the cook buys the product and adds his purchase to the sales of the food outlet
+      if meal-i-cooked != "none" [
+        ;show (list requested-product nr-dinner-guests)
+        ask my-supermarket [
+          let current-sales (table:get sales-table requested-product)
+          table:put sales-table requested-product (current-sales + nr-dinner-guests)
+
+        ]
+      ]
+      report true
       ]
 
     ;if cook cannot determine if a product is available
     [print (list who "I cannot determine if the product I want to purchase is available")]
+
+
+
     )
 
 
 
-  ;the cook buys the product and adds his purchase to the sales of the food outlet
-    if meal-i-cooked != "none" [
-      ;show (list requested-product nr-dinner-guests)
-      ask my-supermarket [
-        let current-sales (table:get sales-table requested-product)
-        table:put sales-table requested-product (current-sales + nr-dinner-guests)
 
-      ]
-    ]
-  ]
 
+  report false
 
 end
 
@@ -830,9 +887,7 @@ to buy-alternative-groceries
   let alt-sales-list []
   ;select a product that has sufficient stock, or buy nothing
 
-
-
-     ;check if food outlet has required product still in stock for the quantity the cook needs
+  ;check if food outlet has required product still in stock for the quantity the cook needs
   ask my-supermarket [
     foreach diets-list [ diets ->
 
@@ -854,7 +909,7 @@ to buy-alternative-groceries
     ;show alt-sales-list
   ]
 
-; from those products reported true in temp-table, choose one, if available, otherwise do not buy anything
+; check if any of the alternative products are available sufficiently; if so, buy them, if not, go home hungry
 
   let length-alt-sales-list length alt-sales-list
 
@@ -899,14 +954,12 @@ to buy-alternative-groceries
     ]
 
     length-alt-sales-list = 0 [
-    set meal-i-cooked "none"
+      set my-supermarket "none"
     ]
 
     ;if the cook could not determine if there were any alternative products available
     [show "I do not know if there are any alternative products available"]
     )
-
-
 
 end
 
@@ -1160,8 +1213,8 @@ to update-stock
 
         ;calculate how the actual sales of each product relates to the margins set for changing the stock
         let nr-products length product-selection ;number of products a food outlet offers
-        let threshold-sales-increase round ( ( 0.9 * initial-stock-diet) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
-        let threshold-sales-decrease round ( ( 0.8 * initial-stock-diet) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
+        let threshold-sales-increase round ( ( upper-margin * initial-stock-diet) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
+        let threshold-sales-decrease round ( ( lower-margin * initial-stock-diet) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
         let percentage-sold ( (sales-diet / initial-stock-diet) * 100 ) ;calculate what percentage of the stock is sold
         let lower-margin-sales abs (threshold-sales-decrease - sales-diet) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
         let upper-margin-sales abs (threshold-sales-increase - sales-diet) ;
@@ -1169,14 +1222,17 @@ to update-stock
 
         (ifelse percentage-sold < threshold-sales-decrease [ ;if sales was below the lower margin sales threshold, reduce the stock
           table:put stock-table diets round ( (initial-stock-diet - (lower-margin-sales * shop-size-factor)) )
+          show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
           ]
 
           percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, reduce the stock
             table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
+          show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
           ]
 
           percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
             table:put stock-table diets table:get initial-stock-table diets
+            show (word "restocking " initial-stock-diet " of " diets)
           ]
 
           ;if something goes wrong
@@ -1243,23 +1299,36 @@ end
 to prepare-sales-reporter
 
 
-;  ask food-outlets [
-;
-;    let report-sales-table table:make
-;    let added-sales 0
-;    show sales-table
-;
-;    foreach product-selection [ diets ->
-;      let sales-outlet table:get sales-table diets
-;      set added-sales (table:get report-sales-table diets + sales-outlet)
-;      show added-sales
-;      table:put report-sales-table diets added-sales
-;    ]
-;    show report-sales-table
-;  ]
+  ask food-outlets [
 
+    let total-sales 0
+
+    foreach product-selection [ diets ->
+      let sales-product table:get sales-table diets
+      set total-sales total-sales + sales-product
+      table:put report-sales-table diets total-sales
+    ]
+
+  ]
 
 end
+
+to prepare-stock-reporter
+
+    ask food-outlets [
+
+    let total-stock 0
+
+    foreach product-selection [ diets ->
+      let stock-product table:get stock-table diets
+      set total-stock total-stock + stock-product
+      table:put report-stock-table diets total-stock
+    ]
+
+  ]
+
+end
+
 
 
 ;;;;;;;;;;;;;;;
@@ -1282,38 +1351,45 @@ to-report diet-variety-networks
   report [network-diet-diversity] of persons
 end
 
-;to-report average-meat-sales
-;  let meat-sales table:get sales-table meat
-;  report mean [meat-sales] of food-outlets
-;end
-;
-;to-report average-fish-sales
-;  report mean [sales-fish] of food-outlets
-;end
-;
-;to-report average-vegetarian-sales
-;  report mean [sales-vegetarian] of food-outlets
-;end
-;
-;to-report average-vegan-sales
-;  report mean [sales-vegan] of food-outlets
-;end
-;
-;to-report median-meat-stock
-;  report median [stock-meat] of food-outlets
-;end
-;
-;to-report median-fish-stock
-;  report median [stock-fish] of food-outlets
-;end
-;
-;to-report median-vegetarian-stock
-;  report median [stock-vegetarian] of food-outlets
-;end
-;
-;to-report median-vegan-stock
-;  report median [stock-vegan] of food-outlets
-;end
+to-report meat-sales
+  let meat-sold table:get report-sales-table "meat"
+  report meat-sold
+end
+
+to-report fish-sales
+    let fish-sold table:get report-sales-table "fish"
+  report fish-sold
+end
+
+to-report vegetarian-sales
+    let vegetarian-sold table:get report-sales-table "vegetarian"
+  report vegetarian-sold
+end
+
+to-report vegan-sales
+    let vegan-sold table:get report-sales-table "vegan"
+  report vegan-sold
+end
+
+to-report meat-stock
+  let meat-in-stock table:get report-stock-table "meat"
+  report meat-in-stock
+end
+
+to-report fish-stock
+    let fish-in-stock table:get report-stock-table "fish"
+  report fish-in-stock
+end
+
+to-report vegetarian-stock
+    let vegetarian-in-stock table:get report-stock-table "vegetarian"
+  report vegetarian-in-stock
+end
+
+to-report vegan-stock
+    let vegan-in-stock table:get report-stock-table "vegan"
+  report vegan-in-stock
+end
 
 
 
@@ -1350,10 +1426,10 @@ ticks
 30.0
 
 BUTTON
-12
-15
-75
-48
+20
+16
+83
+49
 setup
 setup
 NIL
@@ -1367,10 +1443,10 @@ NIL
 1
 
 BUTTON
-158
-15
-221
-48
+165
+16
+228
+49
 go
 go
 T
@@ -1384,25 +1460,25 @@ NIL
 1
 
 SLIDER
-6
-92
-179
-125
+13
+93
+186
+126
 initial-nr-households
 initial-nr-households
 1
 100
-36.0
+51.0
 5
 1
 NIL
 HORIZONTAL
 
 BUTTON
-85
-14
-148
-47
+92
+15
+155
+48
 step
 go
 NIL
@@ -1416,21 +1492,21 @@ NIL
 1
 
 INPUTBOX
-2
-399
-157
-459
+7
+539
+162
+599
 current-seed
-6.3321721E8
+-3.33705313E8
 1
 0
 Number
 
 SWITCH
-164
-401
-277
-434
+170
+540
+283
+573
 fixed-seed?
 fixed-seed?
 0
@@ -1500,10 +1576,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 SLIDER
-190
-631
-363
-664
+1846
+263
+2019
+296
 max-cs-meat
 max-cs-meat
 0
@@ -1515,10 +1591,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-187
-672
-360
-705
+1843
+304
+2016
+337
 max-cs-fish
 max-cs-fish
 0
@@ -1530,10 +1606,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-714
-363
-747
+1846
+346
+2019
+379
 max-cs-veget
 max-cs-veget
 0
@@ -1545,10 +1621,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-190
-754
-363
-787
+1846
+386
+2019
+419
 max-cs-vegan
 max-cs-vegan
 0
@@ -1560,20 +1636,20 @@ NIL
 HORIZONTAL
 
 CHOOSER
-3
-486
-143
-531
+9
+626
+149
+671
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
 0
 
 SLIDER
-3
-589
-176
-622
+7
+294
+180
+327
 p-me
 p-me
 0
@@ -1585,10 +1661,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-629
-176
-662
+7
+334
+180
+367
 p-fi
 p-fi
 0
@@ -1600,10 +1676,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-669
-176
-702
+189
+294
+362
+327
 p-vt
 p-vt
 0
@@ -1615,10 +1691,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-711
-173
-744
+185
+336
+358
+369
 p-vn
 p-vn
 0
@@ -1630,10 +1706,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-6
-134
-179
-167
+13
+135
+186
+168
 mean-family-size
 mean-family-size
 0
@@ -1645,10 +1721,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-173
-178
-206
+12
+174
+185
+207
 sd-family-size
 sd-family-size
 0
@@ -1660,10 +1736,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-186
-520
-359
-553
+182
+646
+355
+679
 meal-quality-variance
 meal-quality-variance
 0
@@ -1675,20 +1751,20 @@ NIL
 HORIZONTAL
 
 CHOOSER
-2
-536
-141
-581
+7
+676
+146
+721
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based"
 0
 
 SWITCH
-4
-280
-117
-313
+10
+421
+123
+454
 friendships?
 friendships?
 1
@@ -1696,32 +1772,14 @@ friendships?
 -1000
 
 TEXTBOX
-1528
-134
-1665
-198
+262
+15
+399
+79
 LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 10
 0.0
 1
-
-PLOT
-1514
-541
-1714
-773
-Diet variety in households
-NIL
-NIL
-1.0
-5.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 1 -16777216 true "" "histogram(diet-variety-households)"
 
 PLOT
 1305
@@ -1742,10 +1800,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram(diet-variety-networks)"
 
 SLIDER
-186
-479
-359
-512
+182
+605
+355
+638
 collectivism-dim
 collectivism-dim
 0
@@ -1757,10 +1815,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1525
-41
-1698
-74
+1825
+65
+1998
+98
 animal-based-supply
 animal-based-supply
 0
@@ -1772,10 +1830,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1522
-82
-1695
-115
+1822
+106
+1995
+139
 plant-based-supply
 plant-based-supply
 0
@@ -1787,20 +1845,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1533
-21
-1670
-39
+1833
+45
+1970
+63
 Protein supply (g/person/day)
 10
 0.0
 1
 
 SWITCH
-123
-281
-243
-314
+129
+422
+249
+455
 dynamic-cs?
 dynamic-cs?
 1
@@ -1808,10 +1866,10 @@ dynamic-cs?
 -1000
 
 SLIDER
-4
-212
-177
-245
+11
+213
+184
+246
 nr-friends
 nr-friends
 2
@@ -1823,10 +1881,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-186
-562
-359
-595
+182
+688
+355
+721
 status-increment
 status-increment
 0
@@ -1838,50 +1896,50 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-9
-69
-146
-87
+16
+70
+153
+88
 INITIALIZATION
 10
 0.0
 1
 
 TEXTBOX
-196
-612
-333
-630
+1852
+244
+1989
+262
 Quality-based sliders
 10
 0.0
 1
 
 TEXTBOX
-9
-462
-146
-480
+14
+602
+151
+620
 SCENARIOS
 10
 0.0
 1
 
 TEXTBOX
-9
-376
-146
-394
+14
+519
+151
+537
 RUN CONTROLS
 10
 0.0
 1
 
 SLIDER
-1546
-417
-1718
+1846
 450
+2018
+483
 p-low
 p-low
 0
@@ -1893,10 +1951,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1547
-453
-1719
+1847
 486
+2019
+519
 p-middle
 p-middle
 0
@@ -1908,10 +1966,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1546
-492
-1718
+1846
 525
+2018
+558
 p-high
 p-high
 0
@@ -1923,25 +1981,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-188
-91
-360
-124
+195
+92
+367
+125
 initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-1.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-186
-135
-361
-168
+102
+255
+277
+288
 food-outlet-service-area
 food-outlet-service-area
 0
@@ -1953,10 +2011,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-4
-320
-179
-353
+10
+461
+185
+494
 food-outlet-interaction?
 food-outlet-interaction?
 0
@@ -1968,7 +2026,7 @@ PLOT
 264
 1512
 496
-average product sales of food outlets
+total product sales of food outlets
 NIL
 NIL
 0.0
@@ -1979,17 +2037,17 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -6459832 true "" "plot average-meat-sales"
-"pen-1" 1.0 0 -2064490 true "" "plot average-fish-sales"
-"pen-2" 1.0 0 -4079321 true "" "plot average-vegetarian-sales"
-"pen-3" 1.0 0 -13840069 true "" "plot average-vegan-sales"
+"default" 1.0 0 -6459832 true "" "plot meat-sales"
+"pen-1" 1.0 0 -2064490 true "" "plot fish-sales"
+"pen-2" 1.0 0 -4079321 true "" "plot vegetarian-sales"
+"pen-3" 1.0 0 -13840069 true "" "plot vegan-sales"
 
 PLOT
 1068
 265
 1303
 495
-food outlet median stocks
+food outlet stocks
 NIL
 NIL
 0.0
@@ -2000,46 +2058,46 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -6459832 true "" "plot median-meat-stock"
-"pen-1" 1.0 0 -2064490 true "" "plot median-fish-stock"
-"pen-2" 1.0 0 -4079321 true "" "plot median-vegetarian-stock"
-"pen-3" 1.0 0 -13840069 true "" "plot median-vegan-stock"
+"default" 1.0 0 -6459832 true "" "plot meat-stock"
+"pen-1" 1.0 0 -2064490 true "" "plot fish-stock"
+"pen-2" 1.0 0 -4079321 true "" "plot vegetarian-stock"
+"pen-3" 1.0 0 -13840069 true "" "plot vegan-stock"
 
 SLIDER
-1624
-131
-1796
-164
+190
+175
+362
+208
 lower-margin
 lower-margin
 0
 1
-0.8
+0.41
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1623
-170
-1795
-203
+189
+215
+361
+248
 upper-margin
 upper-margin
 0
 1
-0.9
+0.62
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-186
-174
-358
-207
+192
+134
+364
+167
 no-sales-threshold
 no-sales-threshold
 0
@@ -2051,10 +2109,10 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-14
-256
-164
-274
+20
+397
+170
+415
 SWITCHES
 10
 0.0
