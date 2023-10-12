@@ -53,9 +53,11 @@ persons-own [
   network-diet-diversity
   ;egoism
   status
+  uncertainty-avoidance
   at-home?
   my-supermarket
   sorted-food-outlets
+
 ]
 
 households-own [
@@ -65,30 +67,18 @@ households-own [
   meal-cooked?
   empty-house?
   diet-diversity
+  vip-preference
 ]
 
 food-outlets-own [
 potential-costumers
   product-selection
   sales-table
-;  sales-meat
-;  sales-fish
-;  sales-vegetarian
-;  sales-vegan
   sales
   initial-stock-table
-;  initial-stock-meat
-;  initial-stock-fish
-;  initial-stock-vegetarian
-;  initial-stock-vegan
   stock-table
   no-sales-count
-;  stock-meat
-;  stock-fish
-;  stock-vegetarian
-;  stock-vegan
-;  business-orientation
-;  susceptibility-to-demand
+  business-orientation ;0 = not considering sustainability at all, 2 = considering sustainability in assortment a lot
 ]
 
 foods-own [
@@ -161,6 +151,7 @@ to setup-households
     set empty-house? false
     set meal-cooked? false
     set diet-diversity 0
+    set vip-preference "none"
 
   ]
 
@@ -180,6 +171,7 @@ to setup-persons
     set meal-i-cooked "none"
     set cooking-skills random-float 1
     set status random-float 1
+    set uncertainty-avoidance random-float 1
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
@@ -192,6 +184,7 @@ to setup-persons
     set cs-veget random-float max-cs-veget
     set cs-vegan random-float max-cs-vegan
     set my-supermarket "none"
+
 
   ]
 end
@@ -243,6 +236,7 @@ to setup-food-outlets
     set shape "square 2"
     set color 25
     set size 1
+    set business-orientation random-float 2
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
 
@@ -268,6 +262,8 @@ to setup-food-outlets
     )
 
     set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
+                                                                                                      ;show product-selection
+
 
     ;food outlets determine for each product in their product-selection, how much of this product is in stock
 
@@ -275,24 +271,70 @@ to setup-food-outlets
     set sales-table table:make
     set stock-table table:make
 
-    foreach diets-list [ diets ->
-      table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-        round (potential-costumers / nr-products) * 1
-      ] [
-        0
+
+
+    let sustainable-foods []
+
+    (ifelse shops-sustainable? = false [
+
+      foreach diets-list [ diets ->
+        table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+          round (potential-costumers / nr-products)
+        ] [
+          0
+        ]
+
+        ;show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
+        table:put sales-table diets 0
+        table:put stock-table diets table:get initial-stock-table diets
+        show stock-table
       ]
-      show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
-      table:put sales-table diets 0
-      table:put stock-table diets table:get initial-stock-table diets
-    ]
+
+      ]
+
+
+      shops-sustainable? = true [
+        ;based on their business orientation, food outlets will adjust their 'standard' assortment
+
+        foreach diets-list [ diets ->
+          table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+            round (potential-costumers / nr-products)
+          ] [
+            0
+          ]
+
+          ;show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
+          table:put sales-table diets 0
+          table:put stock-table diets table:get initial-stock-table diets
+          ;show stock-table
+        ]
+
+        set sustainable-foods (list "vegetarian" "vegan")
+
+        foreach sustainable-foods [ food-item ->
+
+          let assortment-change ( (1 / length sustainable-foods) * potential-costumers * business-orientation )
+          table:put initial-stock-table food-item round assortment-change
+
+          table:put stock-table food-item table:get initial-stock-table food-item
+          ;show stock-table
+
+        ]
+      ]
+      ;if something goes wrong
+      [show "I cannot decide if I have to adjust my stock based on my business orientation"]
+    )
+
 
     set no-sales-count 0
     set label product-selection
 
   ]
+
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
   ]
+
 end
 
 ;to setup-foods
@@ -324,16 +366,6 @@ to go
 end
 
 to closure-of-tick
-  ask persons with [is-cook? = true ] [
-    set meal-i-cooked "none"
-    set is-cook? false
-    set my-dinner-guests "nobody"
-  ]
-
-  ask persons with [is-cook? = false ] [
-    set cooks-cooking-skills "none"
-
-  ]
 
   ask persons with [at-home? = false] [
     let my-home one-of households with [id = [h-id] of myself]
@@ -344,7 +376,11 @@ to closure-of-tick
   ]
 
   ask persons [
+     set meal-i-cooked "none"
+    set is-cook? false
+    set my-dinner-guests "nobody"
     set my-cook "nobody"
+    set cooks-cooking-skills "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
     ;set my-supermarket "none"
@@ -488,263 +524,338 @@ end
 
 to select-meal ;person procedure
 
-      ask persons with [is-cook? = true]  [
+  ask persons with [is-cook? = true]  [
 
-        (ifelse meal-selection = "status-based" [
+    (ifelse meal-selection = "status-based" [
+      status-based-meal-selection
+      ]
 
-          ;;procedure to select status-based a meal
+      meal-selection = "skills-based" [
+        skills-based-meal-selection
+      ]
 
+      meal-selection = "data-based" [
+        data-based-meal-selection
+      ]
 
-          let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
-      let vip-meal [diet] of vip-guest
-          set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
-          ;show meal-i-cooked
+      meal-selection = "majority" [
+        majority-based-meal-selection
+      ]
 
+      meal-selection = "random" [
+        random-meal-selection
+      ]
 
-          (ifelse food-outlet-interaction? = true [
-            go-to-supermarket
-            ]
-            food-outlet-interaction? = false [
-              ;just go on with the rest of the procedure
-            ]
+      meal-selection = "norm-random" [
+        norm-random-meal-selection
+      ]
 
-            ;if the agent does not know if he should go to a supermarket or not
-            [print (list who "I do not know if I should go to the supermarket")]
-          )
+      meal-selection = "collectivism" [
+        collectivism-based-meal-selection
+      ]
 
-          set my-last-dinner meal-i-cooked
+      meal-selection = "uncertainty-avoidance" [
+        uncertainty-avoidance-based-meal-selection
+      ]
 
-          ;guests store meal they had and cooking skills of cook
-          let my-cooking-skills [cooking-skills] of self
+      [
+        ;if no meal-selection option has been selected
+        print(list who "We do not know how to select our meal!")
+      ]
 
-          ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-            set my-last-dinner vip-meal
-            set cooks-cooking-skills my-cooking-skills
-          ] ;cook asks his guests to store his cooking skills for evaluation in the next procedure...
-
-          ]
-
-          meal-selection = "skills-based" [
-
-            ;; procedure to select skills-based a meal
-
-            let list-my-cs-names diets-list ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
-            let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
-            let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
-            let my-best-cs max list-my-cs-values ;select the best cooking skill
-            let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
-
-            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-            set my-last-dinner chosen-meal
+    )
 
 
+    (ifelse food-outlet-interaction? = true [
+      go-to-supermarket
+      ]
+      food-outlet-interaction? = false [
+        ;just go on with the rest of the procedure
+      ]
 
-            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-              set my-last-dinner chosen-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
-          ]
+      ;if the agent does not know if he should go to a supermarket or not
+      [print (list who "I do not know if I should go to the supermarket")]
+    )
 
-          meal-selection = "data-based" [
+    cooking
 
-            ;;procedure to select meal based on data, converted to a chance of choosing a particular type of protein: meat, fish, dairy + eggs, vegetable protein
+  ]
 
-            let meal-list (list (list "meat" 0.9 ) (list  "fish" 0.3 ) (list "vegetarian" 0.15 ) (list "vegan" 0.05 ))
-            let chosen-meal first rnd:weighted-one-of-list meal-list [ [p] -> last p ]
+end
 
-            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-            set my-last-dinner chosen-meal
+to random-meal-selection
 
-            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-              set my-last-dinner chosen-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
+  ;;procedure to select meal randomly
 
-          ]
-
-          meal-selection = "majority" [
-
-            ;;procedure to select meal democratically
+  let chosen-meal one-of diets-list ;choose random item from the list with diets
+  set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
 
 
-            let dinner-list-majority [ (list diet) ] of my-dinner-guests
-            let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-            let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
-            let count-majority-choice max freq-list ;select the highest count
-            let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
-            let majority-meal first majority-meal-list ;unpack diet / meal from list
+;  (ifelse food-outlet-interaction? = true [
+;    go-to-supermarket
+;    ]
+;    food-outlet-interaction? = false [
+;      ;just go on with the rest of the procedure
+;    ]
+;    ;if the agent does not know if he should go to a supermarket or not
+;    [print (list who "I do not know if I should go to the supermarket")]
+;  )
+;
+;  set my-last-dinner meal-i-cooked
+;
+;  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+;    set my-last-dinner chosen-meal
+;    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+;  ]
+end
+
+to norm-random-meal-selection
+
+  ;;procedure to select meal randomly from the dietary preferences of the dinner guests, so reflecting somewhat the practice of a household
 
 
-            set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
-            set my-last-dinner majority-meal
+  let dinner-list [ (list who diet ) ] of my-dinner-guests
+  let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
+  set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+  set my-last-dinner chosen-meal
 
-            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+    set my-last-dinner chosen-meal
+    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+  ]
+
+end
+
+to data-based-meal-selection
+
+  ;;procedure to select meal based on data, converted to a chance of choosing a particular type of protein: meat, fish, dairy + eggs, vegetable protein
+
+  let meal-list (list (list "meat" 0.9 ) (list  "fish" 0.3 ) (list "vegetarian" 0.15 ) (list "vegan" 0.05 ))
+  let chosen-meal first rnd:weighted-one-of-list meal-list [ [p] -> last p ]
+
+  set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+  set my-last-dinner chosen-meal
+
+  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+    set my-last-dinner chosen-meal
+    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+  ]
+
+end
+
+to majority-based-meal-selection
+
+  ;;procedure to select meal democratically
+
+  let dinner-list-majority [ (list diet) ] of my-dinner-guests
+  let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+  let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
+  let count-majority-choice max freq-list ;select the highest count
+  let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+  let majority-meal first majority-meal-list ;unpack diet / meal from list
+
+
+  set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
+
+
+;  set my-last-dinner majority-meal
+;
+;  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+;    set my-last-dinner majority-meal
+;    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+;  ]
+
+end
+
+to status-based-meal-selection
+
+  ;;procedure to select status-based a meal
+  ask persons with [is-cook? = true and meal-i-cooked = "none"] [
+
+  let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
+  let vip-meal [diet] of vip-guest
+  ;show (list vip-meal)
+  ;show (list vip-meal meal-i-cooked)
+  set meal-i-cooked vip-meal   ;cook has decided to cook meal preference of vip-guest
+  ;show (list meal-i-cooked)                            ;show meal-i-cooked
+  ]
+
+end
+
+to collectivism-based-meal-selection
+
+
+  ;;procedure to select meal based on the cultural dimension of individualism - collectivism - this procedure expands the majority-select-meal procedure
+
+  ;determine majority meal
+  let dinner-list-majority [ (list diet) ] of my-dinner-guests
+  let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+  let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
+  let count-majority-choice max freq-list ;select the highest count
+  let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
+  let majority-meal first majority-meal-list ;unpack diet / meal from list
+
+  ;determine minority meal
+  let count-minority-choice min freq-list ;check the minority preference
+  let minority-meal-list table:get dinner-freq-list count-minority-choice
+  let minority-meal first minority-meal-list ;QUESTION: what if two minority meals are present in the household? When printing it always seems to be only one meal
+
+  (ifelse majority-meal = minority-meal [ ;meaning only one meal was on the diet list, so no choice needs to be made
+    set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
+    set my-last-dinner majority-meal
+
+    ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+      set my-last-dinner majority-meal
+      set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+    ]
+
+    ]
+
+    majority-meal != minority-meal [
+
+      ;depending on cultural value of collectivism a minority meal will be cooked
+      let a random-float 1
+
+
+
+      (ifelse a > collectivism-dim [  ;if a is larger than c-dim, then collectivism wins and: individual opinions are not appreciated / catered to), everyone will eat what the majority eats
+
+        set meal-i-cooked majority-meal   ;cook prepares majority meal
+        set my-last-dinner majority-meal
+
+        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+          set my-last-dinner majority-meal
+          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+        ]
+        ]
+
+        a <= collectivism-dim [ ;if a is smaller than c-dim, then individualism wins, and an individual can voice his dietary opinion and be catered to
+
+          ;ask majority and minority people to set their meal accordingly. QUESTION: how to deal with two meals are cooked?
+
+          ask my-dinner-guests [ ;cook asks his guests to set last meal(s) to the one(s) he cooked
+
+            (ifelse diet = majority-meal [
               set my-last-dinner majority-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
-
-
-          ]
-
-            meal-selection = "random" [
-
-            ;;procedure to select meal randomly
-
-            let chosen-meal one-of diets-list ;choose random item from the list with diets
-            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-
-
-            (ifelse food-outlet-interaction? = true [
-              go-to-supermarket
-            ]
-            food-outlet-interaction? = false [
-              ;just go on with the rest of the procedure
-            ]
-            ;if the agent does not know if he should go to a supermarket or not
-            [print (list who "I do not know if I should go to the supermarket")]
-              )
-
-            set my-last-dinner meal-i-cooked
-
-            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-              set my-last-dinner chosen-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
-          ]
-
-          meal-selection = "norm-random" [
-
-            ;;procedure to select meal randomly from the dietary preferences of the dinner guests
-
-
-            let dinner-list [ (list who diet ) ] of my-dinner-guests
-            let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
-            set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
-            set my-last-dinner chosen-meal
-
-            ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-              set my-last-dinner chosen-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
-          ]
-
-          meal-selection = "culture" [
-
-            ;;procedure to select meal based on the cultural dimension of individualism - collectivism - this procedure expands the majority-select-meal procedure
-
-            ;determine majority meal
-            let dinner-list-majority [ (list diet) ] of my-dinner-guests
-            let freq-list map [ i -> frequency I dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
-            let dinner-freq-list table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
-            let count-majority-choice max freq-list ;select the highest count
-            let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
-            let majority-meal first majority-meal-list ;unpack diet / meal from list
-
-            ;determine minority meal
-            let count-minority-choice min freq-list ;check the minority preference
-            let minority-meal-list table:get dinner-freq-list count-minority-choice
-            let minority-meal first minority-meal-list ;QUESTION: what if two minority meals are present in the household? When printing it always seems to be only one meal
-
-            (ifelse majority-meal = minority-meal [ ;meaning only one meal was on the diet list, so no choice needs to be made
-              set meal-i-cooked majority-meal   ;cook decides what type of meal to prepare
-              set my-last-dinner majority-meal
-
-              ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-              set my-last-dinner majority-meal
-              set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-            ]
 
               ]
 
-              majority-meal != minority-meal [
+              diet = minority-meal [
+                set my-last-dinner minority-meal
+              ]
 
-                ;depending on cultural value of collectivism a minority meal will be cooked
-                let a random-float 1
-
-
-
-                (ifelse a > collectivism-dim [  ;if a is larger than c-dim, then collectivism wins and: individual opinions are not appreciated / catered to), everyone will eat what the majority eats
-
-                  set meal-i-cooked majority-meal   ;cook prepares majority meal
-                  set my-last-dinner majority-meal
-
-                  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+              ;if the dinner-guest had neither the minority nor the majority meal as his diet, he can opt for either
+              [let b random-float 1
+                (ifelse b < 0.5 [
+                  set my-last-dinner minority-meal
+                  ]
+                  b >= 0.5 [
                     set my-last-dinner majority-meal
-                    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-                  ]
                   ]
 
-                  a <= collectivism-dim [ ;if a is smaller than c-dim, then individualism wins, and an individual can voice his dietary opinion and be catered to
-
-                    ;ask majority and minority people to set their meal accordingly. QUESTION: how to deal with two meals are cooked?
-
-                    ask my-dinner-guests [ ;cook asks his guests to set last meal(s) to the one(s) he cooked
-
-                      (ifelse diet = majority-meal [
-                        set my-last-dinner majority-meal
-
-                        ]
-
-                        diet = minority-meal [
-                          set my-last-dinner minority-meal
-                        ]
-
-                        ;if the dinner-guest had neither the minority nor the majority meal as his diet, he can opt for either
-                        [let b random-float 1
-                          (ifelse b < 0.5 [
-                            set my-last-dinner minority-meal
-                            ]
-                            b >= 0.5 [
-                            set my-last-dinner majority-meal
-                            ]
-
-                            ;if no probability has been calculated and the dinner-guest cannot chose his meal
-                            [print (list who "I cannot chose which meal to eat")]
-                            )
-                        ]
-
-                        )
-
-                      set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-
-                    ]
-                  ]
-
-                  ;if no comparision between a and collectivism-dim is made
-                  [print (list who "We do not know our collectivism-value")]
-
+                  ;if no probability has been calculated and the dinner-guest cannot chose his meal
+                  [print (list who "I cannot chose which meal to eat")]
                 )
-
               ]
-
-              ;no comparision betwee minority and majority meal is made
-              [print (list who "We did not compare minority and majority meals")]
 
             )
 
-
-
+            set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
 
           ]
+        ]
 
-          [
-            ;if no meal-selection option has been selected
-            print(list who "We do not know how to select our meal!")
-          ]
+        ;if no comparision between a and collectivism-dim is made
+        [print (list who "We do not know our collectivism-value")]
 
-        )
+      )
+
+    ]
+
+    ;no comparision betwee minority and majority meal is made
+    [print (list who "We did not compare minority and majority meals")]
+
+  )
+
+end
+
+to skills-based-meal-selection
+
+  ;; procedure to select skills-based a meal
+
+  let list-my-cs-names diets-list ;create list of diets / meals. Used diet names here instead of cs-[diet] to enable transfer to chosen-meal and plot of cooked meals
+  let list-my-cs-values (list cs-meat cs-fish cs-veget cs-vegan) ;create list of cooking skills values
+  let list-my-cs table:from-list (map list list-my-cs-values list-my-cs-names) ;create table with cooking skill for each diet / meal
+  let my-best-cs max list-my-cs-values ;select the best cooking skill
+  let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
+
+  set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+  set my-last-dinner chosen-meal
 
 
-      ]
+
+  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+    set my-last-dinner chosen-meal
+    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
+  ]
+
+end
+
+to uncertainty-avoidance-based-meal-selection
+
+  let chosen-meal diet ;choose random item from the list with diets
+  set meal-i-cooked chosen-meal   ;cook decides what type of meal to prepare
+
+  ;ask dinner guests if they would like to eat the proposed meal
+
+  let agreement-table table:make
+
+  foreach my-dinner-guests [ guest ->
+
+    (ifelse diet = chosen-meal [
+      table:put agreement-table guest "yes"
+    ]
+    diet != chosen-meal [
+
+      (ifelse uncertainty-avoidance <= random-float 1 [
+        table:put agreement-table guest "no"
+        ]
+        uncertainty-avoidance > random-float 1 [
+          table:put agreement-table guest "yes"
+        ]
+        ;if something goes wrong
+        [show "I cannot decide if I want to try a new meal"]
+      )
+    ]
+
+    ;if something goes wrong
+    [show "I cannot decide what meal my cook has chosen"]
+    )
+  ]
+
+  let agreement-list table:values agreement-table
+
+  if member? "no" agreement-list [
+    ;majority-based-meal-selection
+    ;status-based-meal-selection
+
+  ]
 
 
-
-
-
+  (ifelse food-outlet-interaction? = true [
+    go-to-supermarket
+    ]
+    food-outlet-interaction? = false [
+      ;just go on with the rest of the procedure
+    ]
+    ;if the agent does not know if he should go to a supermarket or not
+    [print (list who "I do not know if I should go to the supermarket")]
+  )
 
 
 
 end
+
 
 
 
@@ -825,8 +936,8 @@ to-report buy-groceries
     ;show (list nr-dinner-guests requested-product stock-sufficient?)
 
 
-    (ifelse available? = false or stock-sufficient? = false [
-      buy-alternative-groceries
+  (ifelse available? = false or stock-sufficient? = false [
+    buy-alternative-groceries
     ]
 
     available? = true [
@@ -876,6 +987,7 @@ to-report buy-groceries
 
 
   report false
+
 
 end
 
@@ -961,6 +1073,22 @@ to buy-alternative-groceries
     [show "I do not know if there are any alternative products available"]
     )
 
+
+
+end
+
+to cooking
+  set my-last-dinner meal-i-cooked
+  show (list meal-i-cooked)
+
+  ;guests store meal they had and cooking skills of cook
+  let my-cooking-skills [cooking-skills] of self
+
+  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
+    set my-last-dinner meal-i-cooked
+    ;show (list my-last-dinner meal-i-cooked)
+    set cooks-cooking-skills my-cooking-skills
+  ]
 end
 
 
@@ -997,12 +1125,20 @@ to set-meal-evaluation
           ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
           ifelse last-meal-enjoyment = "positive" [
             set diet my-last-dinner ;agent uses last meal he had to set new diet preference
+            ;show (list diet my-last-dinner)
           ] [
             ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
           ]
         ]
       ]
+
     ]
+
+
+    ;monitor diet preference of member with highest status
+    let vip-guest max-one-of members [status]
+    set vip-preference [diet] of vip-guest
+
   ]
 end
 
@@ -1099,6 +1235,10 @@ to evaluate-meal
 
           ]
         ]
+
+
+
+
       ]
 
 
@@ -1190,6 +1330,12 @@ to check-sales ;food-outlet procedure
           set label product-selection
         ]
         die ;supermarket goes out of business
+        show ("I close my business")
+
+        ask persons [
+          set sorted-food-outlets sort-on [distance myself] food-outlets
+        ]
+
       ]
 
       ;if the food outlet cannot decide if it sold enough products to stay in business
@@ -1222,17 +1368,17 @@ to update-stock
 
         (ifelse percentage-sold < threshold-sales-decrease [ ;if sales was below the lower margin sales threshold, reduce the stock
           table:put stock-table diets round ( (initial-stock-diet - (lower-margin-sales * shop-size-factor)) )
-          show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
+          ;show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
           ]
 
           percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, reduce the stock
             table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
-          show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
+          ;show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
           ]
 
           percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [
             table:put stock-table diets table:get initial-stock-table diets
-            show (word "restocking " initial-stock-diet " of " diets)
+            ;show (word "restocking " initial-stock-diet " of " diets)
           ]
 
           ;if something goes wrong
@@ -1393,7 +1539,6 @@ end
 
 
 
-
 to-report frequency [x freq-list]
   report reduce [ [occurrence-count next-item] -> ifelse-value (next-item = x) [occurrence-count + 1] [occurrence-count] ] (fput 0 freq-list)
 end
@@ -1497,7 +1642,7 @@ INPUTBOX
 162
 599
 current-seed
--3.33705313E8
+-1.460471239E9
 1
 0
 Number
@@ -1514,10 +1659,10 @@ fixed-seed?
 -1000
 
 PLOT
-1071
-12
-1299
-256
+1313
+262
+1541
+506
 meals cooked
 NIL
 NIL
@@ -1533,14 +1678,13 @@ PENS
 "fish" 1.0 0 -1664597 true "" "plot count persons with [meal-i-cooked = \"fish\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [meal-i-cooked = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-i-cooked = \"vegan\"]"
-"total" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
-"pen-5" 1.0 0 -16777216 true "" "plot count persons with [meal-i-cooked = \"none\"]"
+"pen-4" 1.0 0 -12895429 true "" "plot count persons with [is-cook? = true]"
 
 PLOT
-1308
-505
-1508
-697
+1316
+26
+1516
+254
 dietary preferences
 NIL
 NIL
@@ -1638,11 +1782,11 @@ HORIZONTAL
 CHOOSER
 9
 626
-149
-671
+173
+672
 meal-selection
 meal-selection
-"status-based" "skills-based" "data-based" "majority" "culture" "random" "norm-random"
+"status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance"
 0
 
 SLIDER
@@ -1654,7 +1798,7 @@ p-me
 p-me
 0
 1
-0.92
+0.9
 0.01
 1
 NIL
@@ -1669,7 +1813,7 @@ p-fi
 p-fi
 0
 1
-0.15
+0.02
 0.01
 1
 NIL
@@ -1684,7 +1828,7 @@ p-vt
 p-vt
 0
 1
-0.01
+0.06
 0.01
 1
 NIL
@@ -1699,7 +1843,7 @@ p-vn
 p-vn
 0
 1
-0.1
+0.06
 0.01
 1
 NIL
@@ -1762,9 +1906,9 @@ meal-evaluation
 
 SWITCH
 10
-421
+439
 123
-454
+472
 friendships?
 friendships?
 1
@@ -1782,10 +1926,10 @@ LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 1
 
 PLOT
-1305
-12
-1505
-255
+1316
+507
+1516
+700
 Diet variety in network
 NIL
 NIL
@@ -1855,10 +1999,10 @@ Protein supply (g/person/day)
 1
 
 SWITCH
-129
-422
-249
-455
+130
+440
+250
+473
 dynamic-cs?
 dynamic-cs?
 1
@@ -1881,10 +2025,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-182
-688
-355
-721
+107
+374
+280
+407
 status-increment
 status-increment
 0
@@ -1989,7 +2133,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-4.0
+5.0
 1
 1
 NIL
@@ -2004,7 +2148,7 @@ food-outlet-service-area
 food-outlet-service-area
 0
 16
-16.0
+10.0
 1
 1
 NIL
@@ -2012,20 +2156,20 @@ HORIZONTAL
 
 SWITCH
 10
-461
+479
 185
-494
+512
 food-outlet-interaction?
 food-outlet-interaction?
-0
+1
 1
 -1000
 
 PLOT
-1309
-264
-1512
-496
+1070
+25
+1304
+258
 total product sales of food outlets
 NIL
 NIL
@@ -2072,7 +2216,7 @@ lower-margin
 lower-margin
 0
 1
-0.41
+0.6
 0.01
 1
 NIL
@@ -2087,7 +2231,7 @@ upper-margin
 upper-margin
 0
 1
-0.62
+0.8
 0.01
 1
 NIL
@@ -2110,13 +2254,45 @@ HORIZONTAL
 
 TEXTBOX
 20
-397
+416
 170
-415
+434
 SWITCHES
 10
 0.0
 1
+
+PLOT
+1553
+264
+1768
+508
+dietary preference of vip member
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -6459832 true "" "plot count households with [vip-preference = \"meat\"]"
+"pen-1" 1.0 0 -2064490 true "" "plot count households with [vip-preference = \"fish\"]"
+"pen-2" 1.0 0 -4079321 true "" "plot count households with [vip-preference = \"vegetarian\"]"
+"pen-3" 1.0 0 -13840069 true "" "plot count households with [vip-preference = \"vegan\"]"
+
+SWITCH
+190
+478
+340
+512
+shops-sustainable?
+shops-sustainable?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
