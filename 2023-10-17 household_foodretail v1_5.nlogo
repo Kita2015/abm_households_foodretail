@@ -1,4 +1,4 @@
-;; version 0.4 ;;
+;; version 1.0 ;;
 
 extensions [ rnd table ]
 
@@ -281,7 +281,7 @@ to setup-food-outlets
 
       foreach diets-list [ diets ->
         table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-          round ( (potential-costumers / nr-products) * 1 )
+          round ( (potential-costumers / nr-products) * 3 ) ;hard-coded multiplication of stock per product
         ] [
           0
         ]
@@ -381,14 +381,14 @@ to closure-of-tick
   ]
 
   ask persons [
-     set meal-to-cook "none"
+    set meal-to-cook "none"
     set is-cook? false
     set my-dinner-guests "nobody"
     set my-cook "nobody"
     set cooks-cooking-skills "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
-    ;set my-supermarket "none"
+    set bought? false
 
     let dinner-friends friendship-neighbors
     let dinner-members family-membership-neighbors
@@ -841,25 +841,35 @@ to go-to-supermarket
 
     (ifelse food-outlet-interaction? = true [
 
-      while [meal-to-cook != "none" and bought? = false] [
+      while [meal-to-cook != "none" and bought? = false and supermarket-changes != 0] [
 
         (ifelse my-supermarket = "none" and bought? = false and supermarket-changes != 0 [
+          ;this procedures sets supermarket != "none"
+          ;show "I am selecting supermarket"
           select-supermarket
           ]
 
-          my-supermarket != "none" and bought? = false [
+          my-supermarket != "none" and bought? = false and supermarket-changes != 0 [
+            ;this procedure can set bought? to true
             buy-groceries
           ]
 
-          my-supermarket != "none" and bought? = false and supermarket-changes = 0 [
+          bought? = false and supermarket-changes = 0 [
+            show ("I will try a new product despite my neophobia")
+            ;this procedure sets bought? to true
+            ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
             set sorted-food-outlets sort-on [distance myself] food-outlets
             set my-supermarket first sorted-food-outlets
+            ;the agent will have to buy an alternative product because he cannot go home empty-handed
             buy-alternative-groceries
           ]
 
           ;if something goes wrong
           [show ("I cannot go to the supermarket")]
         )
+
+
+
       ]
       ]
 
@@ -909,6 +919,7 @@ to buy-groceries
     ask my-supermarket [
 
         let current-stock (table:get stock-table requested-product)
+    ;show (list requested-product current-stock)
 
  ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
 
@@ -939,11 +950,22 @@ to buy-groceries
     ( available? = false or stock-sufficient? = false ) and neophobic? = true [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
       set supermarket-changes supermarket-changes - 1
       ;show supermarket-changes
-      select-supermarket
       ;show ("I am changing supermarket!")
+      ;select-supermarket
+
+      if bought? = false and supermarket-changes = 0 [
+            ;show ("I will try a new product despite my neophobia")
+            ;this procedure sets bought? to true
+            ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
+            set sorted-food-outlets sort-on [distance myself] food-outlets
+            set my-supermarket first sorted-food-outlets
+            ;the agent will have to buy an alternative product because he cannot go home empty-handed
+            buy-alternative-groceries
+          ]
 
     ]
 
+    ;cook will reduce the stock of the in which supermarket he purchases his product
     available? = true [
 
       ask my-supermarket [
@@ -951,7 +973,7 @@ to buy-groceries
         foreach diets-list [ diets ->
 
           let current-stock (table:get stock-table diets)
-          ;show stock-table
+          ;show (list diets current-stock)
           (ifelse diets = requested-product [
             table:put stock-table diets ( current-stock - nr-dinner-guests )
             ]
@@ -971,7 +993,9 @@ to buy-groceries
         ;show (list requested-product nr-dinner-guests)
         ask my-supermarket [
           let current-sales (table:get sales-table requested-product)
+          ;show (list current-sales requested-product)
           table:put sales-table requested-product (current-sales + nr-dinner-guests)
+          ;show (list table:get sales-table requested-product requested-product)
 
         ]
 
@@ -1014,7 +1038,7 @@ to buy-alternative-groceries
     foreach diets-list [ diets ->
 
       let current-stock (table:get stock-table diets)
-      show current-stock
+      ;show current-stock
 
       (ifelse current-stock >= nr-dinner-guests [
 
@@ -1079,7 +1103,7 @@ to buy-alternative-groceries
     ]
 
     length-alt-sales-list = 0 [
-      show "I
+      show "I cannot buy ingredients!"
     ]
 
     ;if the cook could not determine if there were any alternative products available
@@ -1479,6 +1503,9 @@ to prepare-sales-reporter
 
   ask food-outlets [
 
+    ;show sales-table
+    ;show stock-table
+
     let total-sales 0
 
     foreach product-selection [ diets ->
@@ -1645,7 +1672,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-16.0
+26.0
 5
 1
 NIL
@@ -2165,7 +2192,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-2.0
+4.0
 1
 1
 NIL
@@ -2278,7 +2305,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-360.0
+210.0
 10
 1
 NIL
@@ -2293,27 +2320,6 @@ SWITCHES
 10
 0.0
 1
-
-PLOT
-1553
-264
-1768
-508
-dietary preference of vip member
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -6459832 true "" "plot count households with [vip-preference = \"meat\"]"
-"pen-1" 1.0 0 -2064490 true "" "plot count households with [vip-preference = \"fish\"]"
-"pen-2" 1.0 0 -4079321 true "" "plot count households with [vip-preference = \"vegetarian\"]"
-"pen-3" 1.0 0 -13840069 true "" "plot count households with [vip-preference = \"vegan\"]"
 
 SWITCH
 170
@@ -2336,6 +2342,25 @@ restocking?
 0
 1
 -1000
+
+PLOT
+190
+373
+390
+523
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
+"pen-1" 1.0 0 -7500403 true "" "plot count persons with [bought? = true]"
 
 @#$#@#$#@
 ## WHAT IS IT?
