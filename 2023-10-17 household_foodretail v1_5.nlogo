@@ -30,6 +30,10 @@ globals [
   cooked-vegan
   report-sales-table
   report-stock-table
+  report-median-sales-table
+  report-median-stock-table
+  income-levels-list
+  income-level-price-table
 ]
 
 
@@ -48,12 +52,14 @@ persons-own [
   my-last-dinner
   last-meals-quality
   last-meal-enjoyment
+  meal-enjoyments-table
   my-cook
   my-dinner-guests
   network-diet-diversity
   ;egoism
   status
   uncertainty-avoidance
+  individualism
   at-home?
   my-supermarket
   sorted-food-outlets
@@ -73,7 +79,7 @@ households-own [
 ]
 
 food-outlets-own [
-potential-costumers
+  potential-costumers
   product-selection
   sales-table
   sales
@@ -120,8 +126,9 @@ to setup-globals
 
   set diet-list (list (list "meat" p-me ) (list  "fish" p-fi ) (list "vegetarian" p-vt ) (list "vegan" p-vn ))
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
-  set income-levels (list (list "low" p-low) (list "middle" p-middle) (list "high" p-high))
-  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) )
+  set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
+  set income-levels-list (list "low" "middle" "high")
+  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) ) ;hard-coded random values, should be based on real data
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -129,11 +136,22 @@ to setup-globals
   set cooked-vegan 0
   set report-sales-table table:make
   set report-stock-table table:make
+  set report-median-sales-table table:make
+  set report-median-stock-table table:make
 
   foreach diets-list [ diets ->
-      table:put report-sales-table diets 0
-      table:put report-stock-table diets 0
-    ]
+    table:put report-sales-table diets 0
+    table:put report-stock-table diets 0
+    table:put report-median-sales-table diets 0
+    table:put report-median-stock-table diets 0
+  ]
+
+  set income-level-price-table table:make
+
+  table:put income-level-price-table "low" 2
+  table:put income-level-price-table "middle" 4
+  table:put income-level-price-table "high" 6
+
 
 end
 
@@ -174,9 +192,16 @@ to setup-persons
     set cooking-skills random-float 1
     set status random-float 1
     set uncertainty-avoidance random-float 1
+    set individualism random-float 1
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
+    set meal-enjoyments-table table:make
+
+    foreach diets-list [ diets ->
+      table:put meal-enjoyments-table diets 0
+    ]
+
     set network-diet-diversity 0
     set cooks-cooking-skills 0
     set my-cook "nobody"
@@ -187,6 +212,7 @@ to setup-persons
     set cs-vegan random-float max-cs-vegan
     set my-supermarket "none"
     set bought? false
+
 
   ]
 end
@@ -281,7 +307,7 @@ to setup-food-outlets
 
       foreach diets-list [ diets ->
         table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-          round ( (potential-costumers / nr-products) * 3 ) ;hard-coded multiplication of stock per product
+          round ( (potential-costumers / nr-products) * stock-multiplication-factor )
         ] [
           0
         ]
@@ -350,12 +376,13 @@ end
 
 to go
 
-  if ticks = 365 [stop]
+  if ticks = 365 * 1 [stop]
 
   closure-of-tick
   select-group-and-cook
   select-meal
   go-to-supermarket
+  ;check-groceries
   cooking
   set-meal-evaluation
   evaluate-meal
@@ -397,6 +424,10 @@ to closure-of-tick
     let unique-diets-network remove-duplicates diets-network
     let count-diets-network length(unique-diets-network)
     set network-diet-diversity count-diets-network
+  ]
+
+  ask persons [
+    set sorted-food-outlets sort-on [distance myself] food-outlets
   ]
 
   ask households [
@@ -474,14 +505,14 @@ to select-group-and-cook ;household procedure
           set is-cook? true
 
           (ifelse dynamic-cs? = true [
-          set cooking-skills min (list 1 (cooking-skills + 0.01))
-          ]
-          dynamic-cs? = false [
-            ;do nothing - the cook does not improve his cooking
-          ]
-          ;if dynamic-cs? is not set for some reason
-          [print (list who "I don't know what to do with cooking skills")]
-        )
+            set cooking-skills min (list 1 (cooking-skills + 0.01))
+            ]
+            dynamic-cs? = false [
+              ;do nothing - the cook does not improve his cooking
+            ]
+            ;if dynamic-cs? is not set for some reason
+            [print (list who "I don't know what to do with cooking skills")]
+          )
 
           let nr-dinner-friends count friendship-neighbors with [at-home? = true]
 
@@ -565,6 +596,10 @@ to select-meal ;person procedure
         uncertainty-avoidance-based-meal-selection
       ]
 
+      meal-selection = "cook-individualism" [
+        cook-individualism-based-meal-selection
+      ]
+
       [
         ;if no meal-selection option has been selected
         print(list who "We do not know how to select our meal!")
@@ -589,16 +624,10 @@ to norm-random-meal-selection
 
   ;;procedure to select meal randomly from the dietary preferences of the dinner guests, so reflecting somewhat the practice of a household
 
-
   let dinner-list [ (list who diet ) ] of my-dinner-guests
-  let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice
+  let chosen-meal item 1 (first dinner-list) ;choose first diet on the list, so the second item in the first list; a random choice from the dietary preferences in the household
   set meal-to-cook chosen-meal   ;cook decides what type of meal to prepare
   set my-last-dinner chosen-meal
-
-  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-    set my-last-dinner chosen-meal
-    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-  ]
 
 end
 
@@ -610,12 +639,6 @@ to data-based-meal-selection
   let chosen-meal first rnd:weighted-one-of-list meal-list [ [p] -> last p ]
 
   set meal-to-cook chosen-meal   ;cook decides what type of meal to prepare
-  set my-last-dinner chosen-meal
-
-  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-    set my-last-dinner chosen-meal
-    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-  ]
 
 end
 
@@ -630,16 +653,7 @@ to majority-based-meal-selection
   let majority-meal-list table:get dinner-freq-list count-majority-choice ;use highest count to select the diet with this highest count
   let majority-meal first majority-meal-list ;unpack diet / meal from list
 
-
   set meal-to-cook majority-meal   ;cook decides what type of meal to prepare
-
-
-;  set my-last-dinner majority-meal
-;
-;  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-;    set my-last-dinner majority-meal
-;    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-;  ]
 
 end
 
@@ -648,12 +662,12 @@ to status-based-meal-selection
   ;;procedure to select status-based a meal
   ask persons with [is-cook? = true and meal-to-cook = "none"] [
 
-  let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
-  let vip-meal [diet] of vip-guest
-  ;show (list vip-meal)
-  ;show (list vip-meal meal-to-cook)
-  set meal-to-cook vip-meal   ;cook has decided to cook meal preference of vip-guest
-  ;show (list meal-to-cook)                            ;show meal-to-cook
+    let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
+    let vip-meal [diet] of vip-guest
+    ;show (list vip-meal)
+    ;show (list vip-meal meal-to-cook)
+    set meal-to-cook vip-meal   ;cook has decided to cook meal preference of vip-guest
+                                ;show (list meal-to-cook)                            ;show meal-to-cook
   ]
 
 end
@@ -678,13 +692,6 @@ to collectivism-based-meal-selection
 
   (ifelse majority-meal = minority-meal [ ;meaning only one meal was on the diet list, so no choice needs to be made
     set meal-to-cook majority-meal   ;cook decides what type of meal to prepare
-    set my-last-dinner majority-meal
-
-    ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-      set my-last-dinner majority-meal
-      set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-    ]
-
     ]
 
     majority-meal != minority-meal [
@@ -692,58 +699,16 @@ to collectivism-based-meal-selection
       ;depending on cultural value of collectivism a minority meal will be cooked
       let a random-float 1
 
-
-
-      (ifelse a > collectivism-dim [  ;if a is larger than c-dim, then collectivism wins and: individual opinions are not appreciated / catered to), everyone will eat what the majority eats
-
+      (ifelse collectivism-dim < a [  ;if a is larger than c-dim, then collectivism wins and: individual opinions are not appreciated / catered to), everyone will eat what the majority eats. It is assumed only one meal will be cooked.
         set meal-to-cook majority-meal   ;cook prepares majority meal
-        set my-last-dinner majority-meal
-
-        ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-          set my-last-dinner majority-meal
-          set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-        ]
         ]
 
-        a <= collectivism-dim [ ;if a is smaller than c-dim, then individualism wins, and an individual can voice his dietary opinion and be catered to
-
-          ;ask majority and minority people to set their meal accordingly. QUESTION: how to deal with two meals are cooked?
-
-          ask my-dinner-guests [ ;cook asks his guests to set last meal(s) to the one(s) he cooked
-
-            (ifelse diet = majority-meal [
-              set my-last-dinner majority-meal
-
-              ]
-
-              diet = minority-meal [
-                set my-last-dinner minority-meal
-              ]
-
-              ;if the dinner-guest had neither the minority nor the majority meal as his diet, he can opt for either
-              [let b random-float 1
-                (ifelse b < 0.5 [
-                  set my-last-dinner minority-meal
-                  ]
-                  b >= 0.5 [
-                    set my-last-dinner majority-meal
-                  ]
-
-                  ;if no probability has been calculated and the dinner-guest cannot chose his meal
-                  [print (list who "I cannot chose which meal to eat")]
-                )
-              ]
-
-            )
-
-            set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-
-          ]
+        collectivism-dim >= a [
+          set meal-to-cook minority-meal
         ]
 
         ;if no comparision between a and collectivism-dim is made
         [print (list who "We do not know our collectivism-value")]
-
       )
 
     ]
@@ -766,82 +731,101 @@ to skills-based-meal-selection
   let chosen-meal table:get list-my-cs my-best-cs ;use the best cooking skill value to select the diet / meal
 
   set meal-to-cook chosen-meal   ;cook decides what type of meal to prepare
-  set my-last-dinner chosen-meal
 
-
-
-  ask my-dinner-guests [ ;cook asks his guests to set last meal to the meal he cooked
-    set my-last-dinner chosen-meal
-    set cooks-cooking-skills [cooking-skills] of myself ;myself is the cook here
-  ]
 
 end
 
 to uncertainty-avoidance-based-meal-selection
 
-  let chosen-meal diet ;choose random item from the list with diets
-  set meal-to-cook chosen-meal   ;cook decides what type of meal to prepare
+  let chosen-meal diet ;choose to prepare the cook's preference
 
   ;ask dinner guests if they would like to eat the proposed meal
 
   let agreement-table table:make
 
-  foreach my-dinner-guests [ guest ->
+  ;create a list with the diets of my dinner guests
+
+  let guest-diet-list []
+
+  ask my-dinner-guests [
+    set guest-diet-list lput diet guest-diet-list
+  ]
+  ;show guest-diet-list
+
+  foreach guest-diet-list [ guests ->
 
     (ifelse diet = chosen-meal [
-      table:put agreement-table guest "yes"
-    ]
-    diet != chosen-meal [
+      table:put agreement-table guests "yes"
+      ]
+      diet != chosen-meal [
 
-      (ifelse uncertainty-avoidance <= random-float 1 [
-        table:put agreement-table guest "no"
-        ]
-        uncertainty-avoidance > random-float 1 [
-          table:put agreement-table guest "yes"
-        ]
-        ;if something goes wrong
-        [show "I cannot decide if I want to try a new meal"]
-      )
-    ]
+        let c random-float 1
 
-    ;if something goes wrong
-    [show "I cannot decide what meal my cook has chosen"]
+        (ifelse uncertainty-avoidance <= c [
+          table:put agreement-table guests "no"
+          ]
+          uncertainty-avoidance > c [
+            table:put agreement-table guests "yes"
+          ]
+          ;if something goes wrong
+          [show "I cannot decide if I want to try a new meal"]
+        )
+      ]
+
+      ;if something goes wrong
+      [show "I cannot decide what meal my cook has chosen"]
     )
   ]
 
+  ;show agreement-table
+
   let agreement-list table:values agreement-table
 
-  if member? "no" agreement-list [
-    ;majority-based-meal-selection
-    ;status-based-meal-selection
-
-  ]
-
-
-  (ifelse food-outlet-interaction? = true [
-    go-to-supermarket
+  (ifelse member? "no" agreement-list [
+   norm-random-meal-selection
     ]
-    food-outlet-interaction? = false [
-      ;just go on with the rest of the procedure
+
+    member? "yes" agreement-list [
+      set meal-to-cook chosen-meal
     ]
-    ;if the agent does not know if he should go to a supermarket or not
-    [print (list who "I do not know if I should go to the supermarket")]
+
+    ;if something goes wrong
+    [show "We could not decide what meal to cook"]
   )
-
-
 
 end
 
+to cook-individualism-based-meal-selection
 
+  let b random-float 1
 
+  (ifelse individualism <= b [ ;if individualism is smaller than b it means the cook is not too individualistic and will fall back to what is usually consumed within the family / dinner guest setting
+    norm-random-meal-selection
+  ]
+
+  individualism > b [
+
+  let try-out-diets-list []
+  set try-out-diets-list filter [ s -> s != diet ] diets-list
+  ;show (list diet try-out-diets-list)
+
+  let chosen-meal one-of try-out-diets-list
+  set meal-to-cook chosen-meal
+  ]
+
+  ;if something goes wrong
+  [show "I was not able to determine if my individualism would decide our meal, or not"]
+  )
+
+end
 
 to go-to-supermarket
 
-  ask persons with [is-cook? = true] [
+  ask persons with [is-cook? = true and meal-to-cook != "none"] [
 
     (ifelse food-outlet-interaction? = true [
 
-      while [meal-to-cook != "none" and bought? = false and supermarket-changes != 0] [
+      while [bought? = false] [
 
         (ifelse my-supermarket = "none" and bought? = false and supermarket-changes != 0 [
           ;this procedures sets supermarket != "none"
@@ -855,7 +839,7 @@ to go-to-supermarket
           ]
 
           bought? = false and supermarket-changes = 0 [
-            show ("I will try a new product despite my neophobia")
+            ;show ("I will try a new product despite my neophobia")
             ;this procedure sets bought? to true
             ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
             set sorted-food-outlets sort-on [distance myself] food-outlets
@@ -888,8 +872,8 @@ end
 
 to select-supermarket
 
-   set my-supermarket first sorted-food-outlets
-   set sorted-food-outlets but-first sorted-food-outlets
+  set my-supermarket first sorted-food-outlets
+  set sorted-food-outlets but-first sorted-food-outlets
 
   ;show my-supermarket
 
@@ -900,46 +884,46 @@ to buy-groceries
   ;if the ingredient is available, they will prepare the selected meal
   ;if the ingredient is NOT available, they will select another meal in the procedure buy-alternative-groceries
 
-    let requested-product meal-to-cook
+  let requested-product meal-to-cook
 
-    let available-products "none"
+  let available-products "none"
 
-    ask my-supermarket [
-      set available-products product-selection
-    ]
+  ask my-supermarket [
+    set available-products product-selection
+  ]
 
 
-    let available? member? meal-to-cook available-products ;check if food outlet sells required product
- ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
-    let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+  let available? member? meal-to-cook available-products ;check if food outlet sells required product
+                                                         ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
+  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
 
-    let stock-sufficient? "none"
+  let stock-sufficient? "none"
 
-     ;check if food outlet has required product still in stock for the quantity the cook needs
-    ask my-supermarket [
+  ;check if food outlet has required product still in stock for the quantity the cook needs
+  ask my-supermarket [
 
-        let current-stock (table:get stock-table requested-product)
+    let current-stock (table:get stock-table requested-product)
     ;show (list requested-product current-stock)
 
- ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
+    ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
 
-        (ifelse current-stock >= nr-dinner-guests [
-          set stock-sufficient? true
-          ]
-          current-stock < nr-dinner-guests [
-            set stock-sufficient? false
-          ]
-          ;if something goes wrong
-          [show "I cannot determine if the shop has sufficient stock of my product"]
-        )
-
+    (ifelse current-stock >= nr-dinner-guests [
+      set stock-sufficient? true
       ]
+      current-stock < nr-dinner-guests [
+        set stock-sufficient? false
+      ]
+      ;if something goes wrong
+      [show "I cannot determine if the shop has sufficient stock of my product"]
+    )
 
-    ;show (list nr-dinner-guests requested-product stock-sufficient?)
+  ]
+
+  ;show (list nr-dinner-guests requested-product stock-sufficient?)
 
 
   let neophobic? uncertainty-avoidance > random-float 1 ;if uncertainty avoidance is larger than the result of the random float, the cook is neophobic
-  ;show (list "my neophobia is" neophobic?)
+                                                        ;show (list "my neophobia is" neophobic?)
 
 
 
@@ -948,28 +932,45 @@ to buy-groceries
     ]
 
     ( available? = false or stock-sufficient? = false ) and neophobic? = true [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
+                                                                                ; go back to while loop
       set supermarket-changes supermarket-changes - 1
       ;show supermarket-changes
       ;show ("I am changing supermarket!")
-      ;select-supermarket
 
-      if bought? = false and supermarket-changes = 0 [
-            ;show ("I will try a new product despite my neophobia")
-            ;this procedure sets bought? to true
-            ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
-            set sorted-food-outlets sort-on [distance myself] food-outlets
-            set my-supermarket first sorted-food-outlets
-            ;the agent will have to buy an alternative product because he cannot go home empty-handed
-            buy-alternative-groceries
-          ]
+      ifelse supermarket-changes != 0 [
+        select-supermarket
+      ]
+
+      ;supermarket-changes = 0
+      [
+        set sorted-food-outlets sort-on [distance myself] food-outlets
+        set my-supermarket first sorted-food-outlets
+        buy-alternative-groceries
+      ]
 
     ]
 
-    ;cook will reduce the stock of the in which supermarket he purchases his product
+
     available? = true [
 
+;      ;check if the product is affordable
+;
+;      (ifelse price-influence? = true [
+;        let my-household in-household-membership-from
+;        let my-income-level [income-level] of household-membership
+;
+;      ]
+;
+;      price-influence? = false [
+;        ;do nothing - just obtain the requested product
+;      ]
+;
+;      ;if something goes wrong
+;      [show "I cannot determine if I can afford this product"]
+;      )
+
       ask my-supermarket [
-        ;show stock-table
+        ;cook will reduce the stock of the in which supermarket he purchases his product
         foreach diets-list [ diets ->
 
           let current-stock (table:get stock-table diets)
@@ -985,8 +986,8 @@ to buy-groceries
           )
         ]
 
-          ;show stock-table
-        ]
+        ;show stock-table
+      ]
 
       ;the cook buys the product and adds his purchase to the sales of the food outlet
       if meal-to-cook != "none" [
@@ -1002,16 +1003,16 @@ to buy-groceries
         set bought? true
       ]
 
-      ]
+    ]
 
     ;if cook cannot determine if a product is available
     [print (list who "I cannot determine if the product I want to purchase is available")]
-    )
+  )
 
 
-;if bought? = true [
-;    show (list my-supermarket meal-to-cook)
-;  ]
+  ;if bought? = true [
+  ;    show (list my-supermarket meal-to-cook)
+  ;  ]
 
 end
 
@@ -1024,7 +1025,7 @@ to buy-alternative-groceries
   ;create a list of available products minus the product that was not available
 
 
-   let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
 
   ;check what other products that the meal i wanted to cook are available
 
@@ -1042,7 +1043,7 @@ to buy-alternative-groceries
 
       (ifelse current-stock >= nr-dinner-guests [
 
-          set alt-sales-list fput diets alt-sales-list
+        set alt-sales-list fput diets alt-sales-list
 
         ]
         current-stock < nr-dinner-guests [
@@ -1056,40 +1057,40 @@ to buy-alternative-groceries
     ;show alt-sales-list
   ]
 
-; check if any of the alternative products are available sufficiently; if so, buy them, if not, go home hungry
+  ; check if any of the alternative products are available sufficiently; if so, buy them, if not, go home hungry
 
   let length-alt-sales-list length alt-sales-list
 
- (ifelse length-alt-sales-list != 0 [
+  (ifelse length-alt-sales-list != 0 [
 
-  let my-alternative-product one-of alt-sales-list
-  let requested-product my-alternative-product
-  set meal-to-cook my-alternative-product
+    let my-alternative-product one-of alt-sales-list
+    let requested-product my-alternative-product
+    set meal-to-cook my-alternative-product
 
 
-  ;buy the alternative product
-      ask my-supermarket [
-          ;show stock-table
-          foreach diets-list [ diets ->
+    ;buy the alternative product
+    ask my-supermarket [
+      ;show stock-table
+      foreach diets-list [ diets ->
 
-            let current-stock (table:get stock-table diets)
-            ;show stock-table
-            (ifelse diets = requested-product [
-              table:put stock-table diets ( current-stock - nr-dinner-guests )
-              ]
-              diets != requested-product [
-                table:put stock-table diets current-stock
-              ]
-              ;if something goes wrong
-              [show "I cannot reset my stock"]
-            )
+        let current-stock (table:get stock-table diets)
+        ;show stock-table
+        (ifelse diets = requested-product [
+          table:put stock-table diets ( current-stock - nr-dinner-guests )
           ]
+          diets != requested-product [
+            table:put stock-table diets current-stock
+          ]
+          ;if something goes wrong
+          [show "I cannot reset my stock"]
+        )
+      ]
 
-          ;show stock-table
-        ]
+      ;show stock-table
+    ]
 
 
-   ;the cook buys the product and adds his purchase to the sales of the food outlet
+    ;the cook buys the product and adds his purchase to the sales of the food outlet
     if meal-to-cook != "none" [
       ;show (list requested-product nr-dinner-guests)
       ask my-supermarket [
@@ -1098,7 +1099,7 @@ to buy-alternative-groceries
 
       ]
 
-        set bought? true
+      set bought? true
     ]
     ]
 
@@ -1108,13 +1109,24 @@ to buy-alternative-groceries
 
     ;if the cook could not determine if there were any alternative products available
     [show "I do not know if there are any alternative products available"]
-    )
+  )
+
+end
+
+to check-groceries
+
+  ask persons with [is-cook? = true and meal-to-cook != "none" and bought? = false] [
+    go-to-supermarket
+  ]
 
 end
 
 to cooking
 
+
+
   ask persons with [is-cook? = true]  [
+
     set my-last-dinner meal-to-cook
     let the-last-dinner meal-to-cook
 
@@ -1126,11 +1138,12 @@ to cooking
       set cooks-cooking-skills my-cooking-skills
     ]
   ]
+
 end
 
 
 to set-meal-evaluation
-    ask households [
+  ask households [
     ifelse empty-house? = true [
       ;do not run this procedure
     ]
@@ -1159,13 +1172,38 @@ to set-meal-evaluation
 
 
 
-          ;in this version people consider changing their diet preference if they enjoyed their meal based only on a binary enjoyment outcome
-          ifelse last-meal-enjoyment = "positive" [
-            set diet my-last-dinner ;agent uses last meal he had to set new diet preference
-            ;show (list diet my-last-dinner)
-          ] [
-            ;do nothing - keep my current preference. I did not like the meal that my-cook served me.
-          ]
+          ;in this version people consider changing their diet preference after liking a meal several times, depending on their uncertainty avoidance
+          (ifelse last-meal-enjoyment = "positive" [
+
+            ;update table with meal enjoyments for each type of diet based on uncertainty avoidance
+            let current-meal-enjoyment table:get meal-enjoyments-table my-last-dinner
+            let update-meal-enjoyment uncertainty-avoidance > random-float 1 ;this evaluates to FALSE (I am too neophobic to consider liking new foods) to TRUE (I am neophilic enough to consider liking new foods)
+
+            (ifelse update-meal-enjoyment = true [
+              table:put meal-enjoyments-table my-last-dinner (current-meal-enjoyment + 1)
+              ]
+              update-meal-enjoyment = false [
+                ;not updating meal-enjoyments
+              ]
+              ;if something goes wrong
+              [show "I was not able to decide if I will update my meal-enjoyments"]
+            )
+
+            ;check how often the person has liked the last meal he had and update accordingly (assuming it takes 8-9 times to like a new food, based on literature)
+            let nr-meal-enjoyments table:get meal-enjoyments-table my-last-dinner
+            if nr-meal-enjoyments >= 8 [
+              set diet my-last-dinner
+              table:put meal-enjoyments-table my-last-dinner 0
+            ]
+            ]
+            last-meal-enjoyment = "negative" [
+
+              ;do nothing - I did not like the meal that my-cook served me and I will not update my preference
+            ]
+
+            ;if something goes wrong
+            [show "I do not know if I should change my dietary preference"]
+          )
         ]
       ]
 
@@ -1173,8 +1211,8 @@ to set-meal-evaluation
 
 
     ;monitor diet preference of member with highest status
-    let vip-guest max-one-of members [status]
-    set vip-preference [diet] of vip-guest
+    ;    let vip-guest max-one-of members [status]
+    ;    set vip-preference [diet] of vip-guest
 
   ]
 end
@@ -1184,99 +1222,99 @@ to evaluate-meal
 
 
 
-      ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
-      if meal-evaluation = "quality-based" [
+  ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
+  if meal-evaluation = "quality-based" [
 
-        ask persons with [is-cook? = false] [
+    ask persons with [is-cook? = false] [
 
-          (ifelse last-meal-enjoyment = "negative" [
-            ask my-cook [
-              set status max (list 0 (status - status-increment))
+      (ifelse last-meal-enjoyment = "negative" [
+        ask my-cook [
+          set status max (list 0 (status - status-increment))
         ]
-          ] last-meal-enjoyment = "positive" [
-            ask my-cook [
-              set status min (list 1 (status + status-increment))
-            ]
-          ] [
-            ;if no last-meals-quality was calcualted
-            print (word who " was not able to judge my meal! last-meal-enjoyment = \"" last-meal-enjoyment "\" ; last-meals-quality = \"" last-meals-quality "\"")
-          ])
-
+      ] last-meal-enjoyment = "positive" [
+        ask my-cook [
+          set status min (list 1 (status + status-increment))
         ]
-      ]
+      ] [
+        ;if no last-meals-quality was calcualted
+        print (word who " was not able to judge my meal! last-meal-enjoyment = \"" last-meal-enjoyment "\" ; last-meals-quality = \"" last-meals-quality "\"")
+      ])
+
+    ]
+  ]
 
 
-      ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
-      ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
-      if meal-evaluation = "status-based" [
+  ;dinner guests give status or substract status from their cook if the cook has higher or lower status than themselves
+  ;cooks give or substract status from their dinner guests if they liked or disliked the meal, respectively
+  if meal-evaluation = "status-based" [
 
-        ;dinner guests distribute status
-        ask persons with [is-cook? = false][
+    ;dinner guests distribute status
+    ask persons with [is-cook? = false][
 
-          let my-status status
-          let status-of-my-cook [status] of my-cook
-          ;print (list who my-status my-cook status-of-my-cook)
+      let my-status status
+      let status-of-my-cook [status] of my-cook
+      ;print (list who my-status my-cook status-of-my-cook)
 
-          (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
-            ask my-cook [
-              ;print "my status is being increased because my dinner guests liked what I cooked for them"
-              set status min (list 1 (status + status-increment))
-            ]
-            ]
+      (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
+        ask my-cook [
+          ;print "my status is being increased because my dinner guests liked what I cooked for them"
+          set status min (list 1 (status + status-increment))
+        ]
+        ]
 
-                            my-status > status-of-my-cook and last-meal-enjoyment = "positive" [
-              ask my-cook [
-              ;print "my status is being increased because my dinner guests liked what I cooked for them"
-              set status min (list 1 (status + status-increment))
+        my-status > status-of-my-cook and last-meal-enjoyment = "positive" [
+          ask my-cook [
+            ;print "my status is being increased because my dinner guests liked what I cooked for them"
+            set status min (list 1 (status + status-increment))
           ]
-            ]
-
-            my-status > status-of-my-cook and last-meal-enjoyment = "negative" [
-              ask my-cook [
-                ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
-                set status max (list 0 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
-              ]
-            ]
-
-
-
-            ;if no input is selected for meal-evaluation, throw error
-            [print (list who "I do not know how to evaluate the meal!")]
-
-          )
         ]
 
-        ;cooks distribute status
-        ask persons with [is-cook? = true][
-          let cooks-status status
-          ask my-dinner-guests with [is-cook? = false] [
-
-            (ifelse last-meal-enjoyment = "positive" [
-              set status min (list 1 (status + status-increment))
-              ]
-
-              last-meal-enjoyment = "negative" and cooks-status > status [
-                ;print "my status is being reduced because I did not like the meal"
-                set status max (list 0 (status - status-increment))
-              ]
-
-              last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
-                                                                                                      ;print "my status is being increased because I am considered important by the cook"
-                set status min (list 1 (status + status-increment))
-              ]
-
-              ;if no last-meal-enjoyment
-              [print (list who "I do not have an opinion about the last meal I had!")]
-
-            )
-
+        my-status > status-of-my-cook and last-meal-enjoyment = "negative" [
+          ask my-cook [
+            ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
+            set status max (list 0 (status - status-increment)) ;if the cook has lower status than myself and I don't like the meal, I will say so
           ]
         ]
 
 
 
+        ;if no input is selected for meal-evaluation, throw error
+        [print (list who "I do not know how to evaluate the meal!")]
+
+      )
+    ]
+
+    ;cooks distribute status
+    ask persons with [is-cook? = true][
+      let cooks-status status
+      ask my-dinner-guests with [is-cook? = false] [
+
+        (ifelse last-meal-enjoyment = "positive" [
+          set status min (list 1 (status + status-increment))
+          ]
+
+          last-meal-enjoyment = "negative" and cooks-status > status [
+            ;print "my status is being reduced because I did not like the meal"
+            set status max (list 0 (status - status-increment))
+          ]
+
+          last-meal-enjoyment = "negative" and (cooks-status < status or cooks-status = status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
+                                                                                                  ;print "my status is being increased because I am considered important by the cook"
+            set status min (list 1 (status + status-increment))
+          ]
+
+          ;if no last-meal-enjoyment
+          [print (list who "I do not have an opinion about the last meal I had!")]
+
+        )
 
       ]
+    ]
+
+
+
+
+  ]
 
 
 
@@ -1356,7 +1394,7 @@ to check-sales ;food-outlet procedure
 
           foreach diets-list [ diets ->
             table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-              round (potential-costumers / nr-products)
+              round (potential-costumers / nr-products) * stock-multiplication-factor
             ] [
               0
             ]
@@ -1370,9 +1408,7 @@ to check-sales ;food-outlet procedure
         die ;supermarket goes out of business
         show ("I close my business")
 
-        ask persons [
-          set sorted-food-outlets sort-on [distance myself] food-outlets
-        ]
+
 
       ]
 
@@ -1514,20 +1550,45 @@ to prepare-sales-reporter
       table:put report-sales-table diets total-sales
     ]
 
+    ;median sales
+    let median-sales-list []
+    let median-sales "none"
+
+    foreach product-selection [diets ->
+      let sold-product table:get sales-table diets
+      set median-sales-list fput sold-product median-sales-list
+      set median-sales median median-sales-list
+      table:put report-median-sales-table diets median-sales
+      ;show report-median-sales-table
+    ]
+
   ]
 
 end
 
 to prepare-stock-reporter
 
-    ask food-outlets [
+  ask food-outlets [
 
+    ;total stocks
     let total-stock 0
 
     foreach product-selection [ diets ->
       let stock-product table:get stock-table diets
       set total-stock total-stock + stock-product
       table:put report-stock-table diets total-stock
+    ]
+
+    ;median stocks
+    let median-stock-list []
+    let median-stock "none"
+
+    foreach product-selection [diets ->
+      let stock-product table:get stock-table diets
+      set median-stock-list fput stock-product median-stock-list
+      set median-stock median median-stock-list
+      table:put report-median-stock-table diets median-stock
+      ;show report-median-stock-table
     ]
 
   ]
@@ -1557,42 +1618,42 @@ to-report diet-variety-networks
 end
 
 to-report meat-sales
-  let meat-sold table:get report-sales-table "meat"
+  let meat-sold table:get report-median-sales-table "meat"
   report meat-sold
 end
 
 to-report fish-sales
-    let fish-sold table:get report-sales-table "fish"
+  let fish-sold table:get report-median-sales-table "fish"
   report fish-sold
 end
 
 to-report vegetarian-sales
-    let vegetarian-sold table:get report-sales-table "vegetarian"
+  let vegetarian-sold table:get report-median-sales-table "vegetarian"
   report vegetarian-sold
 end
 
 to-report vegan-sales
-    let vegan-sold table:get report-sales-table "vegan"
+  let vegan-sold table:get report-median-sales-table "vegan"
   report vegan-sold
 end
 
 to-report meat-stock
-  let meat-in-stock table:get report-stock-table "meat"
+  let meat-in-stock table:get report-median-stock-table "meat"
   report meat-in-stock
 end
 
 to-report fish-stock
-    let fish-in-stock table:get report-stock-table "fish"
+  let fish-in-stock table:get report-median-stock-table "fish"
   report fish-in-stock
 end
 
 to-report vegetarian-stock
-    let vegetarian-in-stock table:get report-stock-table "vegetarian"
+  let vegetarian-in-stock table:get report-median-stock-table "vegetarian"
   report vegetarian-in-stock
 end
 
 to-report vegan-stock
-    let vegan-in-stock table:get report-stock-table "vegan"
+  let vegan-in-stock table:get report-median-stock-table "vegan"
   report vegan-in-stock
 end
 
@@ -1672,7 +1733,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-26.0
+56.0
 5
 1
 NIL
@@ -1701,7 +1762,7 @@ INPUTBOX
 162
 599
 current-seed
--1.460471239E9
+-1.134743712E9
 1
 0
 Number
@@ -1713,7 +1774,7 @@ SWITCH
 573
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -1737,7 +1798,6 @@ PENS
 "fish" 1.0 0 -1664597 true "" "plot count persons with [meal-to-cook = \"fish\"]"
 "vegetarian" 1.0 0 -4079321 true "" "plot count persons with [meal-to-cook = \"vegetarian\"]"
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [meal-to-cook = \"vegan\"]"
-"pen-4" 1.0 0 -12895429 true "" "plot count persons with [is-cook? = true]"
 
 PLOT
 1316
@@ -1761,10 +1821,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1074
-502
-1302
-698
+1086
+494
+1314
+690
 distribution of status
 NIL
 NIL
@@ -1845,8 +1905,8 @@ CHOOSER
 671
 meal-selection
 meal-selection
-"status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance"
-5
+"status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "cook-individualism"
+6
 
 SLIDER
 7
@@ -1917,7 +1977,7 @@ mean-family-size
 mean-family-size
 0
 10
-2.0
+3.0
 1
 1
 NIL
@@ -1947,7 +2007,7 @@ meal-quality-variance
 meal-quality-variance
 0
 0.25
-0.05
+0.1
 0.01
 1
 NIL
@@ -1970,7 +2030,7 @@ SWITCH
 472
 friendships?
 friendships?
-1
+0
 1
 -1000
 
@@ -2016,46 +2076,6 @@ collectivism-dim
 1
 NIL
 HORIZONTAL
-
-SLIDER
-1825
-65
-1998
-98
-animal-based-supply
-animal-based-supply
-0
-150
-70.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1822
-106
-1995
-139
-plant-based-supply
-plant-based-supply
-0
-150
-41.0
-1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-1833
-45
-1970
-63
-Protein supply (g/person/day)
-10
-0.0
-1
 
 SWITCH
 130
@@ -2139,51 +2159,6 @@ RUN CONTROLS
 1
 
 SLIDER
-1846
-450
-2018
-483
-p-low
-p-low
-0
-1
-0.5
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1847
-486
-2019
-519
-p-middle
-p-middle
-0
-1
-0.4
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1846
-525
-2018
-558
-p-high
-p-high
-0
-1
-0.1
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
 195
 92
 367
@@ -2192,17 +2167,17 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 0
 10
-4.0
+8.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-102
-255
-277
-288
+9
+256
+184
+289
 food-outlet-service-area
 food-outlet-service-area
 0
@@ -2225,11 +2200,11 @@ food-outlet-interaction?
 -1000
 
 PLOT
-1070
-25
-1304
-258
-total product sales of food outlets
+1080
+24
+1314
+257
+median product sales of food outlets
 NIL
 NIL
 0.0
@@ -2246,11 +2221,11 @@ PENS
 "pen-3" 1.0 0 -13840069 true "" "plot vegan-sales"
 
 PLOT
-1068
-265
-1303
-495
-food outlet stocks
+1087
+260
+1322
+490
+median food outlet stocks
 NIL
 NIL
 0.0
@@ -2305,7 +2280,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-210.0
+110.0
 10
 1
 NIL
@@ -2328,7 +2303,7 @@ SWITCH
 511
 shops-sustainable?
 shops-sustainable?
-1
+0
 1
 -1000
 
@@ -2339,16 +2314,16 @@ SWITCH
 512
 restocking?
 restocking?
-0
+1
 1
 -1000
 
 PLOT
-190
-373
-390
-523
-plot 1
+1524
+25
+1724
+175
+check doing groceries
 NIL
 NIL
 0.0
@@ -2361,6 +2336,32 @@ false
 PENS
 "default" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
 "pen-1" 1.0 0 -7500403 true "" "plot count persons with [bought? = true]"
+
+SLIDER
+187
+255
+364
+288
+stock-multiplication-factor
+stock-multiplication-factor
+1
+10
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+256
+440
+392
+473
+price-influence?
+price-influence?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -2708,6 +2709,220 @@ NetLogo 6.3.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="friendships-on-off" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="365"/>
+    <metric>current-seed</metric>
+    <metric>diet-variety-networks</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <enumeratedValueSet variable="restocking?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-increment">
+      <value value="0.001"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="lower-margin">
+      <value value="0.6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-fish">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-sales-threshold">
+      <value value="110"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sd-family-size">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="56"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-evaluation">
+      <value value="&quot;quality-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="stock-multiplication-factor">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="shops-sustainable?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-family-size">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vt">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="upper-margin">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-veget">
+      <value value="0.56"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-fi">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-vegan">
+      <value value="0.08"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vn">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-quality-variance">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-interaction?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="dynamic-cs?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="price-influence?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-meat">
+      <value value="0.75"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="friendships?">
+      <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-me">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="collectivism-dim">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;norm-random&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="restocking_sustainable-shops" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="365"/>
+    <metric>current-seed</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <enumeratedValueSet variable="restocking?">
+      <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-increment">
+      <value value="0.001"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="lower-margin">
+      <value value="0.6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-fish">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-sales-threshold">
+      <value value="110"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sd-family-size">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="56"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-evaluation">
+      <value value="&quot;quality-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="stock-multiplication-factor">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="shops-sustainable?">
+      <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-family-size">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vt">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="upper-margin">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-veget">
+      <value value="0.56"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-fi">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-vegan">
+      <value value="0.08"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vn">
+      <value value="0.06"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-quality-variance">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-interaction?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="dynamic-cs?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="price-influence?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-meat">
+      <value value="0.75"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="friendships?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-me">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="collectivism-dim">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;norm-random&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
