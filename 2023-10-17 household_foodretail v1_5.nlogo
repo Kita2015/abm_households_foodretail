@@ -1029,7 +1029,7 @@ to buy-alternative-groceries
 
   ;check what other products that the meal i wanted to cook are available
 
-
+  set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to buy his requested product in the first supermarket of his choice
 
   let alt-sales-list []
   ;select a product that has sufficient stock, or buy nothing
@@ -1762,7 +1762,7 @@ INPUTBOX
 162
 599
 current-seed
--1.134743712E9
+1.934510153E9
 1
 0
 Number
@@ -2314,7 +2314,7 @@ SWITCH
 512
 restocking?
 restocking?
-1
+0
 1
 -1000
 
