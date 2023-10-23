@@ -42,6 +42,7 @@ globals [
   report-diet-prefs-table
   report-saved-diet-prefs-table
   report-delta-diet-prefs-table
+  business-duration-list
 
 ]
 
@@ -96,6 +97,7 @@ food-outlets-own [
   stock-table
   no-sales-count
   business-orientation ;0 = not considering sustainability at all, 2 = considering sustainability in assortment a lot
+  opening-day
 ]
 
 foods-own [
@@ -111,6 +113,7 @@ foods-own [
 
 to setup
   clear-all
+  set error? false
   setup-seed
   setup-globals
   setup-households
@@ -155,6 +158,7 @@ to setup-globals
   set report-delta-diet-prefs-table table:make
   set report-saved-stock-table table:make
   set report-delta-stock-table table:make
+  set business-duration-list []
 
   foreach diets-list [ diets ->
     table:put report-sales-table diets 0
@@ -294,6 +298,7 @@ to setup-food-outlets
     set color 25
     set size 1
     set business-orientation random-float 2
+    set opening-day 0
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
 
@@ -905,7 +910,6 @@ to go-to-supermarket
 
   ]
 
-
 end
 
 to select-supermarket
@@ -1397,6 +1401,7 @@ to check-sales ;food-outlet procedure
       no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
         hatch 1 [
           move-to one-of patches with [not any? turtles-here]
+          set opening-day ticks
 
           ;new supermarket is provided with the same attributes as the supermarket that went out of business, except for stock
           ;provide new supermarket with another assortment and reset all stocks
@@ -1443,10 +1448,11 @@ to check-sales ;food-outlet procedure
           set no-sales-count 0
           set label product-selection
         ]
-        die ;supermarket goes out of business
+        let closing-day ticks
+        let business-period (closing-day - opening-day)
+        set business-duration-list fput business-period business-duration-list
         show ("I close my business")
-
-
+        die ;supermarket goes out of business
 
       ]
 
@@ -1458,6 +1464,23 @@ to check-sales ;food-outlet procedure
 end
 
 to update-stock
+
+     let stock-check "none"
+
+  ask food-outlets [
+    foreach product-selection [ diets ->
+      set stock-check table:get stock-table diets
+      ;print (word who " " stock-check " " diets)
+
+
+      if stock-check = 0 [
+        ;set error? true
+        show (word "I am out of " diets)
+        ;show stock-table
+      ]
+    ]
+  ]
+
 
   ask food-outlets [
 
@@ -1488,7 +1511,7 @@ to update-stock
             ;show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
             ]
 
-            percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, reduce the stock
+            percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, increase the stock
               table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
               ;show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
             ]
@@ -1519,7 +1542,9 @@ to update-stock
       ;if something goes wrong
       [show "I do not know if I should restock based on sales or my initial stock"]
     )
+
   ]
+
 
 
 end
@@ -1980,7 +2005,7 @@ initial-nr-households
 initial-nr-households
 1
 100
-56.0
+31.0
 5
 1
 NIL
@@ -2009,7 +2034,7 @@ INPUTBOX
 162
 599
 current-seed
-8.25650985E8
+1.919094976E9
 1
 0
 Number
@@ -2277,7 +2302,7 @@ SWITCH
 472
 friendships?
 friendships?
-1
+0
 1
 -1000
 
@@ -2497,7 +2522,7 @@ lower-margin
 lower-margin
 0
 1
-0.6
+0.2
 0.01
 1
 NIL
@@ -2512,7 +2537,7 @@ upper-margin
 upper-margin
 0
 1
-0.8
+0.6
 0.01
 1
 NIL
@@ -2527,7 +2552,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-110.0
+120.0
 10
 1
 NIL
