@@ -1473,7 +1473,7 @@ to update-stock
 
       ;print (word who " " stock-check " " diets)
 
-; add all stock-checks = 0 to a list, if this list is the same length as product selection, the shop has ran out of stock
+
       if stock-check = 0 [
         ;set error? true
         show (word "I am out of " diets)
