@@ -1,4 +1,4 @@
-;; version 1.6 ;;
+;; version 2.7 ;;
 
 extensions [ rnd table ]
 
@@ -43,6 +43,10 @@ globals [
   report-saved-diet-prefs-table
   report-delta-diet-prefs-table
   business-duration-list
+  low-income-affordability-table
+  middle-income-affordability-table
+  high-income-affordability-table
+  diets-affordability-table
 
 ]
 
@@ -160,6 +164,10 @@ to setup-globals
   set report-saved-stock-table table:make
   set report-delta-stock-table table:make
   set business-duration-list []
+  set low-income-affordability-table table:make
+  set middle-income-affordability-table table:make
+  set high-income-affordability-table table:make
+  set diets-affordability-table table:make
 
   foreach diets-list [ diets ->
     table:put report-sales-table diets 0
@@ -175,11 +183,10 @@ to setup-globals
     table:put report-delta-stock-table diets 0
   ]
 
-  set income-level-price-table table:make
-
-  table:put income-level-price-table "low" 2
-  table:put income-level-price-table "middle" 4
-  table:put income-level-price-table "high" 6
+  table:put diets-affordability-table "meat" 10
+  table:put diets-affordability-table "fish" 2
+  table:put diets-affordability-table "vegetarian" 3
+  table:put diets-affordability-table "vegan" 2
 
 
 end
@@ -187,13 +194,29 @@ end
 to setup-households
   create-households initial-nr-households
   ask households [
-    move-to one-of patches with [not any? households-here]
+    move-to one-of patches ;with [not any? households-here]
     set shape "house"
     set color 37
     set id id-households + 1
     set id-households id-households + 1 ;each households updates the global variable id-households
                                         ;create household with members
     set income-level first rnd:weighted-one-of-list income-levels [ [p] -> last p ]
+
+    table:put low-income-affordability-table "meat" 7.5
+    table:put low-income-affordability-table "fish" 1
+    table:put low-income-affordability-table "vegetarian" 0.5
+    table:put low-income-affordability-table "vegan" 0.1
+
+    table:put middle-income-affordability-table "meat" 5
+    table:put middle-income-affordability-table "fish" 1
+    table:put middle-income-affordability-table "vegetarian" 1.5
+    table:put middle-income-affordability-table "vegan" 1
+
+    table:put high-income-affordability-table "meat" 2.5
+    table:put high-income-affordability-table "fish" 1
+    table:put high-income-affordability-table "vegetarian" 2.5
+    table:put high-income-affordability-table "vegan" 2
+
     let new-family random-normal mean-family-size sd-family-size
     let new-family-abs abs new-family
     hatch-persons new-family-abs + 1
@@ -205,9 +228,9 @@ to setup-households
   ]
 
   ;check: no more than one house per patch
-  ask patches with [count households-here > 1] [
-    error "more than one house here!"
-  ]
+;  ask patches with [count households-here > 1] [
+;    error "more than one house here!"
+;  ]
 end
 
 to setup-persons
@@ -418,7 +441,6 @@ to go
   select-group-and-cook
   select-meal
   go-to-supermarket
-  ;check-groceries
   cooking
   set-meal-evaluation
   update-diet-preference
@@ -480,7 +502,7 @@ to closure-of-tick
   ]
 
   ask food-outlets [
-
+    set stock-check-list []
     foreach diets-list [ diets ->
       table:put sales-table diets 0
     ]
@@ -533,16 +555,26 @@ to select-group-and-cook ;household procedure
       ]
     ]
 
-    ;; procedure to select dinner and guests if friendships are turned on ;all household members who are todays-cook and who have friends can invite friends over for dinner
+    ;; if friendships? = true
+    ;procedure to select dinner and guests if friendships are turned on ;all household members who are todays-cook and who have friends can invite friends over for dinner
     [
       let members-at-home count members with [at-home? = true]
+
       ifelse members-at-home = 0  [
         set empty-house? true
-        ;do not cook a meal in this household today, because no one is home
-      ]
+              ]
 
       ;if at least 1 member is at home, cook a meal in this household
-      [
+      [set empty-house? false]
+
+      ;start cooking if someone is at home
+
+        ifelse empty-house? = true [
+       ;do not cook a meal today
+      ]
+
+      empty-house? = false [
+
         set meal-cooked? true
         let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
         let todays-dinner-guests members
@@ -592,10 +624,14 @@ to select-group-and-cook ;household procedure
         ]
       ]
 
+      ;if something went wrong
+      [show "I do not know if there's anyone in me"]
 
     ]
 
-  ]
+
+    ]
+
 
   ask persons with [is-cook? = true] [
     let nr-of-dinner-guests count my-dinner-guests
@@ -882,7 +918,7 @@ to go-to-supermarket
 
           my-supermarket != "none" and bought? = false and supermarket-changes != 0 [
             ;this procedure can set bought? to true
-            buy-groceries
+            get-groceries
           ]
 
           bought? = false and supermarket-changes = 0 [
@@ -891,8 +927,8 @@ to go-to-supermarket
             ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
             set sorted-food-outlets sort-on [distance myself] food-outlets
             set my-supermarket first sorted-food-outlets
-            ;the agent will have to buy an alternative product because he cannot go home empty-handed
-            buy-alternative-groceries
+            ;the agent will have to get an alternative product because he cannot go home empty-handed
+            get-alternative-groceries
           ]
 
           ;if something goes wrong
@@ -925,10 +961,10 @@ to select-supermarket
 
 end
 
-to buy-groceries
-  ;all the cooks go buy ingredients at the supermarket
+to get-groceries
+  ;all the cooks go get ingredients at the supermarket
   ;if the ingredient is available, they will prepare the selected meal
-  ;if the ingredient is NOT available, they will select another meal in the procedure buy-alternative-groceries
+  ;if the ingredient is NOT available, they will select another meal in the procedure get-alternative-groceries
 
   let requested-product meal-to-cook
 
@@ -941,7 +977,7 @@ to buy-groceries
 
   let available? member? meal-to-cook available-products ;check if food outlet sells required product
                                                          ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
-  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
 
   let stock-sufficient? "none"
 
@@ -973,8 +1009,8 @@ to buy-groceries
 
 
 
-  (ifelse ( available? = false or stock-sufficient? = false ) and neophobic? = false [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will buy an alternative product
-    buy-alternative-groceries
+  (ifelse ( available? = false or stock-sufficient? = false ) and neophobic? = false [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will get an alternative product
+    get-alternative-groceries
     ]
 
     ( available? = false or stock-sufficient? = false ) and neophobic? = true [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
@@ -991,7 +1027,7 @@ to buy-groceries
       [
         set sorted-food-outlets sort-on [distance myself] food-outlets
         set my-supermarket first sorted-food-outlets
-        buy-alternative-groceries
+        get-alternative-groceries
       ]
 
     ]
@@ -999,21 +1035,21 @@ to buy-groceries
 
     available? = true [
 
-      ;      ;check if the product is affordable
-      ;
-      ;      (ifelse price-influence? = true [
-      ;        let my-household in-household-membership-from
-      ;        let my-income-level [income-level] of household-membership
-      ;
-      ;      ]
-      ;
-      ;      price-influence? = false [
-      ;        ;do nothing - just obtain the requested product
-      ;      ]
-      ;
-      ;      ;if something goes wrong
-      ;      [show "I cannot determine if I can afford this product"]
-      ;      )
+            ;check if the product is affordable
+
+            (ifelse price-influence? = true [
+
+        purchase-groceries
+
+            ]
+
+            price-influence? = false [
+              ;do nothing - just obtain the requested product
+            ]
+
+            ;if something goes wrong
+            [show "I cannot determine if I can afford this product"]
+            )
 
       ask my-supermarket [
         ;cook will reduce the stock of the in which supermarket he purchases his product
@@ -1035,7 +1071,7 @@ to buy-groceries
         ;show stock-table
       ]
 
-      ;the cook buys the product and adds his purchase to the sales of the food outlet
+      ;the cook gets the product and adds his purchase to the sales of the food outlet
       if meal-to-cook != "none" [
         ;show (list requested-product nr-dinner-guests)
         ask my-supermarket [
@@ -1056,29 +1092,20 @@ to buy-groceries
   )
 
 
-  ;if bought? = true [
-  ;    show (list my-supermarket meal-to-cook)
-  ;  ]
-
 end
 
 
 
-to buy-alternative-groceries
+to get-alternative-groceries
 
-  ;show ("I'm gonna buy an alternative product")
-
-  ;create a list of available products minus the product that was not available
-
-
-  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to buy ingredients
+  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
 
   ;check what other products that the meal i wanted to cook are available
 
-  set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to buy his requested product in the first supermarket of his choice
+  set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to get his requested product in the first supermarket of his choice
 
   let alt-sales-list []
-  ;select a product that has sufficient stock, or buy nothing
+  ;select a product that has sufficient stock, or get nothing
 
   ;check if food outlet has required product still in stock for the quantity the cook needs
   ask my-supermarket [
@@ -1103,7 +1130,7 @@ to buy-alternative-groceries
     ;show alt-sales-list
   ]
 
-  ; check if any of the alternative products are available sufficiently; if so, buy them, if not, go home hungry
+  ; check if any of the alternative products are available sufficiently; if so, get them, if not, go home hungry
 
   let length-alt-sales-list length alt-sales-list
 
@@ -1113,8 +1140,24 @@ to buy-alternative-groceries
     let requested-product my-alternative-product
     set meal-to-cook my-alternative-product
 
+     ;check if the product is affordable
 
-    ;buy the alternative product
+            (ifelse price-influence? = true [
+
+        purchase-groceries
+
+            ]
+
+            price-influence? = false [
+              ;do nothing - just obtain the requested product
+            ]
+
+            ;if something goes wrong
+            [show "I cannot determine if I can afford this product"]
+            )
+
+
+    ;get the alternative product
     ask my-supermarket [
       ;show stock-table
       foreach diets-list [ diets ->
@@ -1136,7 +1179,7 @@ to buy-alternative-groceries
     ]
 
 
-    ;the cook buys the product and adds his purchase to the sales of the food outlet
+    ;the cook gets the product and adds his purchase to the sales of the food outlet
     if meal-to-cook != "none" [
       ;show (list requested-product nr-dinner-guests)
       ask my-supermarket [
@@ -1150,7 +1193,7 @@ to buy-alternative-groceries
     ]
 
     length-alt-sales-list = 0 [
-      show "I cannot buy ingredients!"
+      show "I cannot get ingredients!"
     ]
 
     ;if the cook could not determine if there were any alternative products available
@@ -1159,13 +1202,84 @@ to buy-alternative-groceries
 
 end
 
-to check-groceries
+to purchase-groceries
 
-  ask persons with [is-cook? = true and meal-to-cook != "none" and bought? = false] [
-    go-to-supermarket
+  let my-house households with [id = [h-id] of myself]
+  let my-income-level "none"
+  ask my-house [
+    set my-income-level income-level
   ]
 
+  let income-level-tables-list []
+  set income-level-tables-list (list low-income-affordability-table middle-income-affordability-table high-income-affordability-table)
+
+  let my-affordability-table "none"
+
+  let requested-product meal-to-cook
+
+  (ifelse my-income-level = "low" [
+    ;choose the affordability table based on income-level
+    set my-affordability-table item 0 income-level-tables-list
+    ;choose alpha value
+    let alpha table:get my-affordability-table requested-product
+    ;obtain value from gamma-distribution
+    let gamma-value random-gamma alpha 0.5
+    ;choose the value to evaluate against based on type of product cook wants to buy
+    let prob-afford table:get diets-affordability-table requested-product
+
+    ifelse prob-afford <= gamma-value [
+      ;go ahead and buy the product
+    ]
+    ;if prob-afford > gamma-value
+    [get-alternative-groceries]
+  ]
+
+ my-income-level = "middle" [
+    ;choose the affordability table based on income-level
+    set my-affordability-table item 1 income-level-tables-list
+    ;choose alpha value
+    let alpha table:get my-affordability-table requested-product
+    ;obtain value from gamma-distribution
+    let gamma-value random-gamma alpha 0.5
+    ;choose the value to evaluate against based on type of product cook wants to buy
+    let prob-afford table:get diets-affordability-table requested-product
+
+    ifelse prob-afford <= gamma-value [
+      ;go ahead and buy the product
+    ]
+    ;if prob-afford > gamma-value
+    [get-alternative-groceries]
+  ]
+
+   my-income-level = "high" [
+    ;choose the affordability table based on income-level
+    set my-affordability-table item 2 income-level-tables-list
+    ;choose alpha value
+    let alpha table:get my-affordability-table requested-product
+    ;obtain value from gamma-distribution
+    let gamma-value random-gamma alpha 0.5
+    ;choose the value to evaluate against based on type of product cook wants to buy
+    let prob-afford table:get diets-affordability-table requested-product
+
+    ifelse prob-afford <= gamma-value [
+      ;go ahead and buy the product
+    ]
+    ;if prob-afford > gamma-value
+    [get-alternative-groceries]
+  ]
+
+  ;if something goes wrong
+  [show "I cannot determine if my income-level can afford the product I want to buy"]
+  )
+
+
+
+
+
+
+
 end
+
 
 to cooking
 
@@ -1652,7 +1766,6 @@ to update-stock
       if stock-check = 0 [
         show (word "I am out of " diets)
         set stock-check-list fput diets stock-check-list
-        show (list ticks stock-check-list)
       ]
 
     ]
@@ -1756,10 +1869,6 @@ to visualization
       ;if status exceeds 1
       [set size 1.8]
     )
-
-    ;set label according to cooking skills
-    set label (precision cooking-skills 1)
-    set label-color white
 
     ;set color according to diet
     (ifelse diet = "meat" [
@@ -2125,11 +2234,11 @@ end
 GRAPHICS-WINDOW
 409
 10
-1095
-697
+1027
+629
 -1
 -1
-20.55
+10.0
 1
 10
 1
@@ -2139,14 +2248,14 @@ GRAPHICS-WINDOW
 0
 0
 1
--16
-16
--16
-16
+-30
+30
+-30
+30
 0
 0
 1
-ticks
+days
 30.0
 
 BUTTON
@@ -2190,10 +2299,10 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-1
-100
-26.0
-5
+400
+500
+450.0
+10
 1
 NIL
 HORIZONTAL
@@ -2221,7 +2330,7 @@ INPUTBOX
 162
 599
 current-seed
--1.055913607E9
+6.42167813E8
 1
 0
 Number
@@ -2365,7 +2474,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "cook-individualism"
-0
+2
 
 SLIDER
 7
@@ -2436,7 +2545,7 @@ mean-family-size
 mean-family-size
 0
 10
-3.0
+2.0
 1
 1
 NIL
@@ -2466,7 +2575,7 @@ meal-quality-variance
 meal-quality-variance
 0
 0.25
-0.1
+0.25
 0.01
 1
 NIL
@@ -2530,7 +2639,7 @@ collectivism-dim
 collectivism-dim
 0
 1
-0.9
+0.5
 0.01
 1
 NIL
@@ -2624,9 +2733,9 @@ SLIDER
 125
 initial-nr-food-outlets
 initial-nr-food-outlets
-0
-10
-6.0
+4
+30
+4.0
 1
 1
 NIL
@@ -2639,10 +2748,10 @@ SLIDER
 289
 food-outlet-service-area
 food-outlet-service-area
-0
-16
-15.0
-1
+20
+60
+40.0
+5
 1
 NIL
 HORIZONTAL
@@ -2709,7 +2818,7 @@ lower-margin
 lower-margin
 0
 1
-0.2
+0.34
 0.01
 1
 NIL
@@ -2805,7 +2914,7 @@ stock-multiplication-factor
 stock-multiplication-factor
 1
 10
-2.0
+1.0
 1
 1
 NIL
@@ -2850,7 +2959,7 @@ SWITCH
 574
 error?
 error?
-0
+1
 1
 -1000
 
@@ -2900,7 +3009,7 @@ SLIDER
 182
 646
 355
-680
+679
 power-distance-dim
 power-distance-dim
 0
