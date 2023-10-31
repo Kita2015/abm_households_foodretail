@@ -594,7 +594,7 @@ to select-group-and-cook ;household procedure
             [print (list who "I don't know what to do with cooking skills")]
           )
 
-          let nr-dinner-friends count friendship-neighbors with [at-home? = true]
+          let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
 
 
           ;;if the cook has no friends
@@ -612,7 +612,7 @@ to select-group-and-cook ;household procedure
               move-to patch-here
             ]
 
-            let dinner-members family-membership-neighbors with [at-home? = true]
+            let dinner-members family-membership-neighbors with [at-home? = true and is-cook? = false]
             set my-dinner-guests (turtle-set dinner-members dinner-friends self)
 
           ]
@@ -2332,7 +2332,7 @@ INPUTBOX
 162
 599
 current-seed
-6.42167813E8
+-1.911248973E9
 1
 0
 Number
