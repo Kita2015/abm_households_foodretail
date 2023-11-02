@@ -2303,7 +2303,7 @@ initial-nr-households
 initial-nr-households
 4000
 5000
-4000.0
+4500.0
 100
 1
 NIL
@@ -2332,7 +2332,7 @@ INPUTBOX
 162
 599
 current-seed
-1.824969723E9
+8.50293646E8
 1
 0
 Number
@@ -2752,7 +2752,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-60.0
+40.0
 5
 1
 NIL
@@ -2820,7 +2820,7 @@ lower-margin
 lower-margin
 0
 1
-0.18
+0.3
 0.01
 1
 NIL
@@ -2835,7 +2835,7 @@ upper-margin
 upper-margin
 0
 1
-0.91
+0.6
 0.01
 1
 NIL
@@ -2884,7 +2884,7 @@ SWITCH
 512
 restocking?
 restocking?
-1
+0
 1
 -1000
 
@@ -2916,7 +2916,7 @@ stock-multiplication-factor
 stock-multiplication-factor
 1
 10
-2.0
+1.0
 1
 1
 NIL
