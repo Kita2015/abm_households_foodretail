@@ -2332,7 +2332,7 @@ INPUTBOX
 162
 599
 current-seed
-1.824969723E9
+1.191355575E9
 1
 0
 Number
@@ -2835,7 +2835,7 @@ upper-margin
 upper-margin
 0
 1
-0.91
+0.26
 0.01
 1
 NIL
@@ -2916,7 +2916,7 @@ stock-multiplication-factor
 stock-multiplication-factor
 1
 10
-2.0
+4.0
 1
 1
 NIL
@@ -2929,7 +2929,7 @@ SWITCH
 473
 price-influence?
 price-influence?
-1
+0
 1
 -1000
 

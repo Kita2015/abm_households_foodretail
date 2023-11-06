@@ -1,0 +1,27 @@
+current-seed
+count persons with [diet = "meat"]
+count persons with [diet = "fish"]
+count persons with [diet = "vegetarian"]
+count persons with [diet = "vegan"]
+meat-stock
+fish-stock
+vegetarian-stock
+vegan-stock
+count persons with [meal-to-cook = "meat"]
+count persons with [meal-to-cook = "fish"]
+count persons with [meal-to-cook = "vegetarian"]
+count persons with [meal-to-cook = "vegan"]"
+relative-change-meat-stock 
+relative-change-fish-stock
+relative-change-vegetarian-stock
+relative-change-vegan-stock
+relative-change-meat-cooked
+relative-change-fish-cooked
+relative-change-vegetarian-cooked
+relative-change-vegan-cooked
+relative-change-meat-pref
+relative-change-fish-pref
+relative-change-vegetarian-pref
+relative-change-vegan-pref
+business-duration-list
+diet-variety-networks
