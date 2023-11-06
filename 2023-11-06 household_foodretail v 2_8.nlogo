@@ -438,6 +438,7 @@ to go
   if ticks = 365 * 10 or error? = true [stop]
 
   closure-of-tick
+  influence-diets
   select-group-and-cook
   select-meal
   go-to-supermarket
@@ -515,6 +516,52 @@ to closure-of-tick
   ]
 
 end
+
+to influence-diets
+
+
+    (ifelse diet-influencers = "none" [
+      ;do nothing
+    ]
+
+    diet-influencers = "low-status" [
+
+      let low-status-persons persons with [status <= 0.25]
+
+      let count-low-status-persons count low-status-persons
+      let nr-influencers p-influencers * count-low-status-persons
+      let influencers n-of nr-influencers low-status-persons
+
+
+      ask influencers [set diet influencers-diet]
+
+      set diet-influencers "none"
+    ]
+
+
+
+    diet-influencers = "high-status" [
+       let high-status-persons persons with [status >= 0.75]
+      let count-high-status-persons count high-status-persons
+      let nr-influencers p-influencers * count-high-status-persons
+      let influencers n-of nr-influencers high-status-persons
+
+       ask influencers [set diet influencers-diet]
+
+      set diet-influencers "none"
+    ]
+
+    ;if something goes wrong
+       [print "The model was not able to use influencers to change dietary preference of part of the population"]
+      )
+
+
+
+
+
+
+end
+
 
 to select-group-and-cook ;household procedure
   ask households [
@@ -1895,6 +1942,7 @@ to visualization
 
 end
 
+
 to prepare-sales-reporter
 
 
@@ -2301,9 +2349,9 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-4000
+500
 5000
-4000.0
+500.0
 100
 1
 NIL
@@ -2332,7 +2380,7 @@ INPUTBOX
 162
 599
 current-seed
-1.191355575E9
+1.042591515E9
 1
 0
 Number
@@ -2391,10 +2439,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-1607
-488
-1835
-684
+1598
+473
+1832
+699
 distribution of status
 NIL
 NIL
@@ -2409,10 +2457,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 SLIDER
-1846
-263
-2019
-296
+1859
+42
+2032
+75
 max-cs-meat
 max-cs-meat
 0
@@ -2424,10 +2472,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1843
-304
-2016
-337
+1856
+83
+2029
+116
 max-cs-fish
 max-cs-fish
 0
@@ -2439,10 +2487,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1846
-346
-2019
-379
+1859
+125
+2032
+158
 max-cs-veget
 max-cs-veget
 0
@@ -2454,10 +2502,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1846
-386
-2019
-419
+1859
+165
+2032
+198
 max-cs-vegan
 max-cs-vegan
 0
@@ -2476,7 +2524,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "cook-individualism"
-2
+0
 
 SLIDER
 7
@@ -2547,7 +2595,7 @@ mean-family-size
 mean-family-size
 0
 10
-2.0
+6.0
 1
 1
 NIL
@@ -2699,10 +2747,10 @@ INITIALIZATION
 1
 
 TEXTBOX
-1852
-244
-1989
-262
+1865
+23
+2002
+41
 Quality-based sliders
 10
 0.0
@@ -2737,7 +2785,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-15.0
+28.0
 1
 1
 NIL
@@ -2768,27 +2816,6 @@ food-outlet-interaction?
 0
 1
 -1000
-
-PLOT
-1596
-244
-1831
-471
-median product sales of food outlets
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -6459832 true "" "plot meat-sales"
-"pen-1" 1.0 0 -2064490 true "" "plot fish-sales"
-"pen-2" 1.0 0 -4079321 true "" "plot vegetarian-sales"
-"pen-3" 1.0 0 -13840069 true "" "plot vegan-sales"
 
 PLOT
 1094
@@ -2850,7 +2877,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-120.0
+30.0
 10
 1
 NIL
@@ -2884,28 +2911,9 @@ SWITCH
 512
 restocking?
 restocking?
-1
+0
 1
 -1000
-
-PLOT
-407
-704
-607
-854
-check doing groceries
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count persons with [is-cook? = true]"
-"pen-1" 1.0 0 -7500403 true "" "plot count persons with [bought? = true]"
 
 SLIDER
 187
@@ -2916,7 +2924,7 @@ stock-multiplication-factor
 stock-multiplication-factor
 1
 10
-4.0
+1.0
 1
 1
 NIL
@@ -2929,14 +2937,14 @@ SWITCH
 473
 price-influence?
 price-influence?
-0
+1
 1
 -1000
 
 PLOT
 1324
 469
-1607
+1595
 698
 relative change in meals cooked
 NIL
@@ -3021,6 +3029,101 @@ power-distance-dim
 1
 NIL
 HORIZONTAL
+
+PLOT
+1596
+248
+1832
+468
+distribution of business duration
+NIL
+NIL
+0.0
+360.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 50.0 1 -16777216 true "" "histogram(business-duration-list)"
+
+PLOT
+412
+639
+612
+789
+low status - dietary preference
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -6459832 true "" "plot count persons with [diet = \"meat\" and status <= 0.25]"
+"pen-1" 1.0 0 -2064490 true "" "plot count persons with [diet = \"fish\" and status <= 0.25]"
+"pen-2" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\" and status <= 0.25]"
+"pen-3" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\" and status <= 0.25]"
+
+PLOT
+613
+638
+813
+788
+high status - dietary preference
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -8431303 true "" "plot count persons with [diet = \"meat\" and status >= 0.75]"
+"pen-1" 1.0 0 -2064490 true "" "plot count persons with [diet = \"fish\" and status >= 0.75]"
+"pen-2" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\" and status >= 0.75]"
+"pen-3" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\" and status >= 0.75]"
+
+CHOOSER
+3
+725
+141
+770
+diet-influencers
+diet-influencers
+"none" "high-status" "low-status"
+0
+
+SLIDER
+182
+727
+354
+760
+p-influencers
+p-influencers
+0
+1
+0.25
+0.01
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+7
+776
+145
+821
+influencers-diet
+influencers-diet
+"meat" "fish" "vegetarian" "vegan"
+2
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3369,112 +3472,11 @@ NetLogo 6.3.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="friendships-on-off" repetitions="100" runMetricsEveryStep="true">
+  <experiment name="chicken_egg_supply_demand" repetitions="25" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
-    <timeLimit steps="365"/>
-    <metric>current-seed</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <enumeratedValueSet variable="restocking?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="status-increment">
-      <value value="0.001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="lower-margin">
-      <value value="0.6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-cs-fish">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="no-sales-threshold">
-      <value value="110"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sd-family-size">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="56"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-evaluation">
-      <value value="&quot;quality-based&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="stock-multiplication-factor">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-food-outlets">
-      <value value="8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="shops-sustainable?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mean-family-size">
-      <value value="3"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-vt">
-      <value value="0.06"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="upper-margin">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-cs-veget">
-      <value value="0.56"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-fi">
-      <value value="0.02"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-cs-vegan">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="food-outlet-service-area">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-vn">
-      <value value="0.06"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-quality-variance">
-      <value value="0.1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="food-outlet-interaction?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamic-cs?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="price-influence?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-cs-meat">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="friendships?">
-      <value value="false"/>
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-me">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="collectivism-dim">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;norm-random&quot;"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="restocking_sustainable-shops" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <timeLimit steps="365"/>
+    <timeLimit steps="3650"/>
+    <exitCondition>error? = true</exitCondition>
     <metric>current-seed</metric>
     <metric>count persons with [diet = "meat"]</metric>
     <metric>count persons with [diet = "fish"]</metric>
@@ -3496,7 +3498,7 @@ NetLogo 6.3.0
       <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="status-increment">
-      <value value="0.001"/>
+      <value value="0.01"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="lower-margin">
       <value value="0.6"/>
@@ -3508,55 +3510,56 @@ NetLogo 6.3.0
       <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="no-sales-threshold">
-      <value value="110"/>
+      <value value="180"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="sd-family-size">
       <value value="1"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-nr-households">
-      <value value="56"/>
+      <value value="4500"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="meal-evaluation">
-      <value value="&quot;quality-based&quot;"/>
+      <value value="&quot;power-distance&quot;"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="stock-multiplication-factor">
-      <value value="10"/>
+      <value value="1"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-nr-food-outlets">
-      <value value="8"/>
+      <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="shops-sustainable?">
       <value value="false"/>
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="mean-family-size">
-      <value value="3"/>
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="p-vt">
-      <value value="0.06"/>
+      <value value="0.02"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="upper-margin">
-      <value value="0.8"/>
+      <value value="0.6"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-cs-veget">
-      <value value="0.56"/>
+      <value value="0.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="p-fi">
       <value value="0.02"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-cs-vegan">
-      <value value="0.08"/>
+      <value value="0.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="food-outlet-service-area">
-      <value value="15"/>
+      <value value="40"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="p-vn">
-      <value value="0.06"/>
+      <value value="0.02"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="meal-quality-variance">
       <value value="0.1"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="food-outlet-interaction?">
+      <value value="false"/>
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="dynamic-cs?">
@@ -3566,16 +3569,16 @@ NetLogo 6.3.0
       <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-cs-meat">
-      <value value="0.75"/>
+      <value value="0.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="friendships?">
-      <value value="true"/>
+      <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="p-me">
-      <value value="0.9"/>
+      <value value="0.94"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="collectivism-dim">
-      <value value="0.9"/>
+      <value value="0.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="meal-selection">
       <value value="&quot;norm-random&quot;"/>
