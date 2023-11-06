@@ -1,7 +1,6 @@
 parameter,type,setting,minimum,maximum
 collectivism-dim,numeric,0.5,0.5,0.5
 dynamic-cs?,boolean,False,FALSE,false
-error?,boolean,False,FALSE,false
 fixed-seed?,boolean,False,FALSE,false
 food-outlet-interaction?,boolean,True,true,TRUE
 food-outlet-service-area,numeric,40,40,40
