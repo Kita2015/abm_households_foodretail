@@ -380,6 +380,8 @@ to setup-food-outlets
       ]
 
 
+
+
       shops-sustainable? = true [
         ;based on their business orientation, food outlets will adjust their 'standard' assortment
 
@@ -413,6 +415,48 @@ to setup-food-outlets
     )
 
 
+
+           (ifelse more-sustainable-shops? = false [
+
+        foreach diets-list [ diets ->
+          table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+            round ( (potential-costumers / nr-products) * stock-multiplication-factor )
+          ] [
+            0
+          ]
+
+          ;show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
+          table:put sales-table diets 0
+          table:put stock-table diets table:get initial-stock-table diets
+          ;show stock-table
+        ]
+
+      ]
+
+      more-sustainable-shops? = true [
+        set sustainable-foods (list "vegetarian" "vegan")
+
+        foreach sustainable-foods [food-item ->
+              table:put initial-stock-table food-item 0
+              table:put stock-table food-item table:get initial-stock-table food-item
+              table:put sales-table food-item 0
+
+   show initial-stock-table
+            ]
+
+        set product-selection diets-list
+
+
+      ]
+
+     ;if something goes wrong
+      [show "I cannot decide if I will become more sustainable over time or not!"]
+    )
+
+
+
+
+
     set no-sales-count 0
     set label product-selection
 
@@ -439,6 +483,7 @@ to go
 
   closure-of-tick
   influence-diets
+  more-sustainable-shops
   select-group-and-cook
   select-meal
   go-to-supermarket
@@ -519,15 +564,32 @@ end
 
 to influence-diets
 
+  if influencers? = true [
+
+    if ticks = 365 [
+
 
     (ifelse diet-influencers = "none" [
       ;do nothing
     ]
 
+    diet-influencers = "random" [
+
+      let count-persons count persons
+      let nr-influencers p-influencers * count-persons
+      let influencers n-of nr-influencers persons
+
+
+      ask influencers [set diet influencers-diet]
+
+      set diet-influencers "none"
+
+    ]
+
     diet-influencers = "low-status" [
 
       let low-status-persons persons with [status <= 0.25]
-        print low-status-persons
+
       let count-low-status-persons count low-status-persons
       let nr-influencers p-influencers * count-low-status-persons
       let influencers n-of nr-influencers low-status-persons
@@ -544,19 +606,89 @@ to influence-diets
        let high-status-persons persons with [status >= 0.75]
       let count-high-status-persons count high-status-persons
       let nr-influencers p-influencers * count-high-status-persons
-      let influencers n-of nr-influencrs high-status-persons
+      let influencers n-of nr-influencers high-status-persons
+
+       ask influencers [set diet influencers-diet]
+
+      set diet-influencers "none"
     ]
 
     ;if something goes wrong
        [print "The model was not able to use influencers to change dietary preference of part of the population"]
       )
+    ]
+
+  ]
 
 
+
+end
+
+to more-sustainable-shops
+
+  if more-sustainable-shops? = true [
+
+    let year-passed ticks mod 365
+    let update-shops "none"
+
+    ifelse year-passed = 1 [
+      set update-shops true
+    ]
+    ;if year-passed != 1
+    [set update-shops false]
+
+    if update-shops = true [
+
+      let sustainable-foods []
+
+      ;if a food outlet already sells vegetarian and vegan
+
+      ;check product selection of food outlet
+      ask food-outlets [
+
+          set sustainable-foods (list "vegetarian" "vegan")
+          show (list ticks stock-table)
+          ;update sustainable stocks
+          foreach sustainable-foods [ food-item ->
+
+            let current-stock table:get stock-table food-item
+
+            (ifelse current-stock != 0 [
+
+            let assortment-change (p-more-sustainable * business-orientation * current-stock)
+            let new-stock current-stock + assortment-change
+            table:put stock-table food-item round new-stock
+            ]
+
+            current-stock = 0 [
+              let assortment-change (business-orientation * potential-costumers * p-more-sustainable)
+              table:put stock-table food-item round assortment-change
+            ]
+
+            ;if something goes wrong
+            [show "I was not able to check if I already sold vegetarian or vegan products!"]
+            )
+
+
+
+            show (list ticks stock-table)
+
+
+      ]
+    ]
+
+
+
+
+
+    ]
+  ]
 
 
 
 
 end
+
 
 
 to select-group-and-cook ;household procedure
@@ -1808,7 +1940,7 @@ to update-stock
     foreach product-selection [ diets ->
       set stock-check table:get stock-table diets
 
-      if stock-check = 0 [
+      if stock-check = 0 and more-sustainable-shops? = false [
         show (word "I am out of " diets)
         set stock-check-list fput diets stock-check-list
       ]
@@ -2376,7 +2508,7 @@ INPUTBOX
 162
 599
 current-seed
-1.042591515E9
+-5.33910658E8
 1
 0
 Number
@@ -2513,10 +2645,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-9
-626
-173
-671
+8
+646
+172
+691
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "cook-individualism"
@@ -2613,10 +2745,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-182
-688
-355
-721
+232
+720
+405
+753
 meal-quality-variance
 meal-quality-variance
 0
@@ -2628,10 +2760,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-7
-676
-146
-721
+6
+696
+145
+741
 meal-evaluation
 meal-evaluation
 "quality-based" "status-based" "power-distance"
@@ -2677,10 +2809,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram(diet-variety-networks)"
 
 SLIDER
-182
-605
-355
-638
+232
+637
+405
+670
 collectivism-dim
 collectivism-dim
 0
@@ -2753,11 +2885,11 @@ Quality-based sliders
 1
 
 TEXTBOX
-14
-602
-151
-620
-SCENARIOS
+13
+609
+211
+635
+SCENARIOS & INTERVENTIONS
 10
 0.0
 1
@@ -2781,7 +2913,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-28.0
+18.0
 1
 1
 NIL
@@ -2796,7 +2928,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-60.0
+40.0
 5
 1
 NIL
@@ -3012,10 +3144,10 @@ PENS
 "pen-4" 1.0 0 -6459832 true "" "plot relative-change-meat-stock"
 
 SLIDER
-182
-646
-355
-679
+232
+678
+405
+711
 power-distance-dim
 power-distance-dim
 0
@@ -3087,39 +3219,76 @@ PENS
 "pen-3" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\" and status >= 0.75]"
 
 CHOOSER
-3
-725
-141
-770
+820
+635
+958
+680
 diet-influencers
 diet-influencers
-"none" "high-status" "low-status"
+"none" "random" "high-status" "low-status"
 0
 
 SLIDER
-182
-727
-354
-760
+824
+739
+996
+772
 p-influencers
 p-influencers
 0
-1
 0.25
+0.1
 0.01
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-7
-776
-145
-821
+824
+686
+962
+731
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-3
+2
+
+SWITCH
+964
+637
+1080
+670
+influencers?
+influencers?
+1
+1
+-1000
+
+SWITCH
+1096
+706
+1281
+739
+more-sustainable-shops?
+more-sustainable-shops?
+0
+1
+-1000
+
+SLIDER
+1097
+743
+1269
+776
+p-more-sustainable
+p-more-sustainable
+0
+0.25
+0.1
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

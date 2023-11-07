@@ -2301,9 +2301,9 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-500
+50
 5000
-3700.0
+50.0
 100
 1
 NIL
@@ -2332,7 +2332,7 @@ INPUTBOX
 162
 599
 current-seed
-1.301555007E9
+6.4901989E8
 1
 0
 Number
@@ -2547,7 +2547,7 @@ mean-family-size
 mean-family-size
 0
 10
-6.0
+2.0
 1
 1
 NIL
@@ -2600,7 +2600,7 @@ SWITCH
 472
 friendships?
 friendships?
-1
+0
 1
 -1000
 
@@ -2737,7 +2737,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-28.0
+20.0
 1
 1
 NIL
@@ -2752,7 +2752,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-60.0
+40.0
 5
 1
 NIL
@@ -2799,7 +2799,7 @@ lower-margin
 lower-margin
 0
 1
-0.18
+0.5
 0.01
 1
 NIL
@@ -2814,7 +2814,7 @@ upper-margin
 upper-margin
 0
 1
-0.26
+0.6
 0.01
 1
 NIL
@@ -2829,7 +2829,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-30.0
+180.0
 10
 1
 NIL
