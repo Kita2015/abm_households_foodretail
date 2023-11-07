@@ -416,7 +416,8 @@ to setup-food-outlets
 
 
 
-           (ifelse more-sustainable-shops? = false [
+
+      ifelse more-sustainable-shops? = true or less-animal-proteins? = true [
 
         foreach diets-list [ diets ->
           table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
@@ -428,39 +429,21 @@ to setup-food-outlets
           ;show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
           table:put sales-table diets 0
           table:put stock-table diets table:get initial-stock-table diets
-          ;show stock-table
+
         ]
 
-      ]
-
-      more-sustainable-shops? = true [
-        set sustainable-foods (list "vegetarian" "vegan")
-
-        foreach sustainable-foods [food-item ->
-              table:put initial-stock-table food-item 0
-              table:put stock-table food-item table:get initial-stock-table food-item
-              table:put sales-table food-item 0
-
-   show initial-stock-table
-            ]
-
         set product-selection diets-list
-
 
       ]
 
      ;if something goes wrong
-      [show "I cannot decide if I will become more sustainable over time or not!"]
-    )
-
-
-
-
+      [show "I cannot decide if I will become more sustainable or have less animal proteins over time or not!"]
 
     set no-sales-count 0
     set label product-selection
 
   ]
+
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
@@ -484,6 +467,7 @@ to go
   closure-of-tick
   influence-diets
   more-sustainable-shops
+  less-animal-proteins-shops
   select-group-and-cook
   select-meal
   go-to-supermarket
@@ -647,29 +631,95 @@ to more-sustainable-shops
       ask food-outlets [
 
           set sustainable-foods (list "vegetarian" "vegan")
-          show (list ticks stock-table)
+          show (list "tick" ticks initial-stock-table)
           ;update sustainable stocks
           foreach sustainable-foods [ food-item ->
 
-            let current-stock table:get stock-table food-item
+            let current-stock table:get initial-stock-table food-item
 
             (ifelse current-stock != 0 [
 
             let assortment-change (p-more-sustainable * business-orientation * current-stock)
             let new-stock current-stock + assortment-change
-            table:put stock-table food-item round new-stock
+            table:put initial-stock-table food-item round new-stock
+            table:put stock-table food-item table:get initial-stock-table food-item
             ]
 
-            current-stock = 0 [
+            current-stock = 0 [ ;if the food outlet did not sell vegetarian and vegan before, it will now start selling some products
               let assortment-change (business-orientation * potential-costumers * p-more-sustainable)
-              table:put stock-table food-item round assortment-change
+              table:put initial-stock-table food-item round assortment-change
+              table:put stock-table food-item table:get initial-stock-table food-item
             ]
 
             ;if something goes wrong
             [show "I was not able to check if I already sold vegetarian or vegan products!"]
             )
 
-            show (list ticks stock-table)
+            show (list "tick" ticks initial-stock-table)
+
+
+      ]
+    ]
+
+    ]
+  ]
+
+
+
+end
+
+to less-animal-proteins-shops
+
+  if less-animal-proteins? = true [
+
+    let year-passed ticks mod 365
+    let update-shops "none"
+
+    ifelse year-passed = 1 [
+      set update-shops true
+    ]
+    ;if year-passed != 1
+    [set update-shops false]
+
+    if update-shops = true [
+
+      let animal-foods []
+
+      ;if a food outlet already sells meat and fish
+
+      ;check product selection of food outlet
+      ask food-outlets [
+
+          set animal-foods (list "meat" "fish")
+          show (list "tick" ticks initial-stock-table)
+          ;update sustainable stocks
+          foreach animal-foods [ food-item ->
+
+            let current-stock table:get initial-stock-table food-item
+
+            (ifelse current-stock != 0 [
+
+            let assortment-change (p-less-animal-proteins * business-orientation * current-stock)
+            let new-stock current-stock - assortment-change
+
+            ifelse new-stock <= 0 [
+              table:put initial-stock-table food-item 0
+              table:put stock-table food-item table:get initial-stock-table food-item
+            ]
+            ;new-stock != 0
+            [table:put initial-stock-table food-item round new-stock
+            table:put stock-table food-item table:get initial-stock-table food-item]
+            ]
+
+            current-stock = 0 [ ;if a food outlet does not sell either meat or fish
+              ;do nothing, you cannot reduce a stock that does not exists
+            ]
+
+            ;if something goes wrong
+            [show "I was not able to check if I already sold meat or fish products!"]
+            )
+
+            show (list "tick" ticks initial-stock-table)
 
 
       ]
@@ -1933,10 +1983,10 @@ to update-stock
     foreach product-selection [ diets ->
       set stock-check table:get stock-table diets
 
-      if stock-check = 0 and more-sustainable-shops? = false [
-        show (word "I am out of " diets)
-        set stock-check-list fput diets stock-check-list
-      ]
+;      if stock-check = 0 and (more-sustainable-shops? = false or less-animal-proteins? = false) [
+;        show (word "I am out of " diets)
+;        set stock-check-list fput diets stock-check-list
+;      ]
 
     ]
 
@@ -2501,7 +2551,7 @@ INPUTBOX
 162
 599
 current-seed
-1.41918652E8
+-2.02580581E9
 1
 0
 Number
@@ -2513,7 +2563,7 @@ SWITCH
 573
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -2645,7 +2695,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "cook-individualism"
-0
+6
 
 SLIDER
 7
@@ -3276,8 +3326,34 @@ SLIDER
 p-more-sustainable
 p-more-sustainable
 0
-0.25
-0.1
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SWITCH
+1293
+707
+1457
+741
+less-animal-proteins?
+less-animal-proteins?
+0
+1
+-1000
+
+SLIDER
+1295
+747
+1468
+781
+p-less-animal-proteins
+p-less-animal-proteins
+0
+1
+0.75
 0.01
 1
 NIL
