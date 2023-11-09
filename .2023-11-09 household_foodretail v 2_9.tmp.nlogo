@@ -987,7 +987,7 @@ to status-based-meal-selection
 
     let vip-guest max-one-of my-dinner-guests [status] ;choose guest with highest status; this could in this model version also be himself
     let vip-meal [diet] of vip-guest
-    set shopping-list vip-meal
+    set shopping-list (list vip-meal)
 
     set meal-to-cook vip-meal   ;cook has decided to cook meal preference of vip-guest
                                 ;show (list meal-to-cook)                            ;show meal-to-cook
@@ -1170,16 +1170,9 @@ to adventurous-cook-meal-selection
 
     individualism > b [
 
-      let try-out-diets-list []
-      set try-out-diets-list filter [ s -> s != diet ] diets-list
-      show diet
-      show try-out-diets-list
-      ;show (list diet try-out-diets-list)
 
-      set shopping-list
-
-      let chosen-meal one-of try-out-diets-list
-      set meal-to-cook chosen-meal
+      set shopping-list filter [ s -> s != diet ] diets-list
+      set meal-to-cook one-of shopping-list
     ]
 
     ;if something goes wrong
@@ -1253,7 +1246,7 @@ to get-groceries
   ;if the ingredient is NOT available, they will select another meal in the procedure get-alternative-groceries
 
   let requested-product meal-to-cook
-  ;show requested-product
+  show requested-product
 
   let available-products "none"
 
@@ -1295,10 +1288,21 @@ to get-groceries
   let neophobic? uncertainty-avoidance > random-float 1 ;if uncertainty avoidance is larger than the result of the random float, the cook is neophobic
                                                         ;show (list "my neophobia is" neophobic?)
 
-
+  ;update shopping list and meal-to-cook
+  let length-shopping-list length shopping-list
+  show shopping-list
+  show length-shopping-list
 
   (ifelse ( available? = false or stock-sufficient? = false ) and neophobic? = false [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will get an alternative product
-    get-alternative-groceries
+
+    ifelse length-shopping-list > 1 [
+          get-alternative-groceries
+        ]
+
+        ;shopping-list = 1
+        ;go home hungry
+        [show "I am so neophobic that I refuse to buy anything but my preferred product!"]
+
     ]
 
     ( available? = false or stock-sufficient? = false ) and neophobic? = true [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
@@ -1311,17 +1315,30 @@ to get-groceries
         select-supermarket
       ]
 
-      ;supermarket-changes = 0
+      ;supermarket-changes = 0 this can happen if someone is neophobic and tried all supermarkets but could not find his preferred ingredient, so he will return to his first supermarket
       [
         set sorted-food-outlets sort-on [distance myself] food-outlets
         set my-supermarket first sorted-food-outlets
-        get-alternative-groceries
+
+
+        ifelse length-shopping-list > 1 [
+          get-alternative-groceries
+        ]
+
+        ;shopping-list = 1
+        ;go home hungry
+        [show "I am so neophobic that I refuse to buy anything but my preferred product!"]
       ]
 
     ]
 
 
+
+
+
     available? = true [
+
+      ;show (list shopping-list meal-to-cook)
 
             ;check if the product is affordable
 
@@ -1386,107 +1403,14 @@ end
 
 to get-alternative-groceries
 
-  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
-
-  ;check what other products that the meal i wanted to cook are available
+  ;show "I am getting alternative groceries"
+  set shopping-list remove-item 0 shopping-list
+    set meal-to-cook item 0 shopping-list
 
   set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to get his requested product in the first supermarket of his choice
 
-  let alt-sales-list []
-  ;select a product that has sufficient stock, or get nothing
+  get-groceries
 
-  ;check if food outlet has required product still in stock for the quantity the cook needs
-  ask my-supermarket [
-    foreach diets-list [ diets ->
-
-      let current-stock (table:get stock-table diets)
-      ;show current-stock
-
-      (ifelse current-stock >= nr-dinner-guests [
-
-        set alt-sales-list fput diets alt-sales-list
-
-        ]
-        current-stock < nr-dinner-guests [
-          ;do nothing
-        ]
-        ;if something goes wrong
-        [show "I cannot determine for each product if it is sufficiently in stock"]
-      )
-
-    ]
-    ;show alt-sales-list
-  ]
-
-  ; check if any of the alternative products are available sufficiently; if so, get them, if not, go home hungry
-
-  let length-alt-sales-list length alt-sales-list
-
-  (ifelse length-alt-sales-list != 0 [
-
-    let my-alternative-product one-of alt-sales-list
-    let requested-product my-alternative-product
-    set meal-to-cook my-alternative-product
-
-     ;check if the product is affordable
-
-            (ifelse price-influence? = true [
-
-        purchase-groceries
-
-            ]
-
-            price-influence? = false [
-              ;do nothing - just obtain the requested product
-            ]
-
-            ;if something goes wrong
-            [show "I cannot determine if I can afford this product"]
-            )
-
-
-    ;get the alternative product
-    ask my-supermarket [
-      ;show stock-table
-      foreach diets-list [ diets ->
-
-        let current-stock (table:get stock-table diets)
-        ;show stock-table
-        (ifelse diets = requested-product [
-          table:put stock-table diets ( current-stock - nr-dinner-guests )
-          ]
-          diets != requested-product [
-            table:put stock-table diets current-stock
-          ]
-          ;if something goes wrong
-          [show "I cannot reset my stock"]
-        )
-      ]
-
-      ;show stock-table
-    ]
-
-
-    ;the cook gets the product and adds his purchase to the sales of the food outlet
-    if meal-to-cook != "none" [
-      ;show (list requested-product nr-dinner-guests)
-      ask my-supermarket [
-        let current-sales (table:get sales-table requested-product)
-        table:put sales-table requested-product (current-sales + nr-dinner-guests)
-
-      ]
-
-      set bought? true
-    ]
-    ]
-
-    length-alt-sales-list = 0 [
-      show "I cannot get ingredients!"
-    ]
-
-    ;if the cook could not determine if there were any alternative products available
-    [show "I do not know if there are any alternative products available"]
-  )
 
 end
 
@@ -1676,7 +1600,11 @@ end
 
 to evaluate-meal
 
-  ;both options for meal evaluation assume that in evaluating the meal, people grant or substract status ("reputation") to or from others
+  ;random evaluation "roll a dice"
+  if meal-evaluation = "random" [
+    random-meal-evaluation
+  ]
+
 
 
   ;dinner guests give status or substract status from their cook if they like or do not like the meal cooked, respectively
@@ -1695,10 +1623,30 @@ to evaluate-meal
     power-distance-based-meal-evaluation
   ]
 
+end
 
+to random-meal-evaluation
 
+  ask persons with [is-cook? = false] [
+
+  let d random-float 1
+
+  (ifelse d <= 1 [
+      ask my-cook [
+        set status max (list 0 (status - status-increment))
+      ]
+    ] d > "positive" [
+      ask my-cook [
+        set status min (list 1 (status + status-increment))
+      ]
+    ] [
+      ;if no last-meals-quality was calcualted
+      show "I could not ranomly evaluate my meal"
+    ])
+]
 
 end
+
 
 to quality-based-meal-evaluation
 
@@ -2588,9 +2536,9 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-25
+500
 5000
-225.0
+1000.0
 100
 1
 NIL
@@ -2763,7 +2711,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "adventurous-cook"
-8
+0
 
 SLIDER
 7
@@ -2877,8 +2825,8 @@ CHOOSER
 741
 meal-evaluation
 meal-evaluation
-"quality-based" "status-based" "power-distance"
-2
+"random" "quality-based" "status-based" "power-distance"
+0
 
 SWITCH
 10
@@ -3024,7 +2972,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-5.0
+15.0
 1
 1
 NIL
