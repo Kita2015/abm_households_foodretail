@@ -97,6 +97,7 @@ households-own [
 
 food-outlets-own [
   potential-costumers
+  nr-protein-sources
   product-selection
   sales-table
   sales
@@ -310,12 +311,14 @@ to setup-friendships
       let potential-friends other persons with [h-id != [h-id] of myself]
       let nr-friendships random nr-friends ;people will create 0 or 1 friends
       repeat nr-friendships [create-friendship-with one-of potential-friends [set color 9.9]]
-      set dinner-friends friendship-neighbors
+      set dinner-friends friendship-neighbors ;this should be an agentset
     ]
   ]
   ;friendships? = false
   [
-    ;do nothing
+    ask persons [
+      set dinner-friends turtle-set self
+    ]
   ]
 end
 
@@ -354,6 +357,7 @@ to setup-food-outlets
       [print (list who "I cannot calculate how many products I will offer to my costumers")]
     )
 
+    set nr-protein-sources nr-products
     set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
                                                                                                       ;show product-selection
 
@@ -521,8 +525,7 @@ to closure-of-tick
     set last-meal-enjoyment "none"
     set bought? false
 
-
-    let network-members (turtle-set dinner-friends dinner-members self)
+    let network-members (turtle-set self dinner-friends dinner-members) ;
     let diets-network [ (list diet) ] of network-members
     let unique-diets-network remove-duplicates diets-network
     let count-diets-network length(unique-diets-network)
@@ -642,7 +645,7 @@ to more-sustainable-shops
       ask food-outlets [
 
           set sustainable-foods (list "vegetarian" "vegan")
-          show (list "tick" ticks initial-stock-table)
+          ;show (list "tick" ticks initial-stock-table)
           ;update sustainable stocks
           foreach sustainable-foods [ food-item ->
 
@@ -666,7 +669,7 @@ to more-sustainable-shops
             [show "I was not able to check if I already sold vegetarian or vegan products!"]
             )
 
-            show (list "tick" ticks initial-stock-table)
+            ;show (list "tick" ticks initial-stock-table)
 
 
       ]
@@ -702,7 +705,7 @@ to less-animal-proteins-shops
       ask food-outlets [
 
           set animal-foods (list "meat" "fish")
-          show (list "tick" ticks initial-stock-table)
+          ;show (list "tick" ticks initial-stock-table)
           ;update sustainable stocks
           foreach animal-foods [ food-item ->
 
@@ -730,7 +733,7 @@ to less-animal-proteins-shops
             [show "I was not able to check if I already sold meat or fish products!"]
             )
 
-            show (list "tick" ticks initial-stock-table)
+            ;show (list "tick" ticks initial-stock-table)
 
 
       ]
@@ -1249,7 +1252,7 @@ to get-groceries
   ;if the ingredient is NOT available, they will select another meal in the procedure get-alternative-groceries
 
   let requested-product meal-to-cook
-  show requested-product
+  ;show requested-product
 
   let available-products "none"
 
@@ -1293,8 +1296,8 @@ to get-groceries
 
   ;update shopping list and meal-to-cook
   let length-shopping-list length shopping-list
-  show shopping-list
-  show length-shopping-list
+  ;show shopping-list
+  ;show length-shopping-list
 
   (ifelse ( available? = false or stock-sufficient? = false ) and neophobic? = false [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will get an alternative product
 
@@ -2335,7 +2338,8 @@ end
 ;; product selection ;;
 
 to-report nr-of-products
-  r
+  report [nr-protein-sources] of food-outlets
+end
 
 
 ;; status ;;
@@ -2575,7 +2579,7 @@ INPUTBOX
 162
 599
 current-seed
--2.02580581E9
+-1.191308012E9
 1
 0
 Number
@@ -2719,7 +2723,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "adventurous-cook"
-0
+5
 
 SLIDER
 7
@@ -2980,7 +2984,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-15.0
+30.0
 1
 1
 NIL
@@ -2995,7 +2999,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-40.0
+60.0
 5
 1
 NIL
@@ -3382,6 +3386,24 @@ p-less-animal-proteins
 1
 NIL
 HORIZONTAL
+
+PLOT
+831
+10
+1031
+160
+Number of products in food outlets
+NIL
+NIL
+1.0
+5.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram(nr-of-products)"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3818,6 +3840,108 @@ NetLogo 6.3.0
     </enumeratedValueSet>
     <enumeratedValueSet variable="food-outlet-interaction?">
       <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="dynamic-cs?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="price-influence?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-meat">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="friendships?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-me">
+      <value value="0.94"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="collectivism-dim">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;norm-random&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="restocking_servicearea_margins" repetitions="2" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="3650"/>
+    <exitCondition>error? = true</exitCondition>
+    <metric>current-seed</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>nr-of-products</metric>
+    <steppedValueSet variable="lower-margin" first="0.1" step="0.1" last="0.8"/>
+    <steppedValueSet variable="upper-margin" first="0.2" step="0.1" last="0.9"/>
+    <steppedValueSet variable="food-outlet-service-area" first="10" step="5" last="60"/>
+    <steppedValueSet variable="initial-nr-food-outlets" first="10" step="10" last="100"/>
+    <enumeratedValueSet variable="restocking?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-increment">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-fish">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="no-sales-threshold">
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sd-family-size">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="4500"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-evaluation">
+      <value value="&quot;random&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="stock-multiplication-factor">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="shops-sustainable?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-family-size">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vt">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-veget">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-fi">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cs-vegan">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-vn">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-quality-variance">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-interaction?">
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="dynamic-cs?">

@@ -62,6 +62,8 @@ persons-own [
   cs-vegan
   cooks-cooking-skills
   h-id
+  dinner-friends
+  dinner-members
   shopping-list
   meal-to-cook
   my-last-dinner
@@ -290,6 +292,7 @@ to setup-families
     create-family-memberships-with my-family [set color pink] ; persons create family bonds
     let my-house households with [id = [h-id] of myself]
     create-household-membership-from one-of my-house [set color 37]
+    set dinner-members family-membership-neighbors
   ]
 
 end
@@ -307,6 +310,7 @@ to setup-friendships
       let potential-friends other persons with [h-id != [h-id] of myself]
       let nr-friendships random nr-friends ;people will create 0 or 1 friends
       repeat nr-friendships [create-friendship-with one-of potential-friends [set color 9.9]]
+      set dinner-friends friendship-neighbors
     ]
   ]
   ;friendships? = false
@@ -517,8 +521,7 @@ to closure-of-tick
     set last-meal-enjoyment "none"
     set bought? false
 
-    let dinner-friends friendship-neighbors
-    let dinner-members family-membership-neighbors
+
     let network-members (turtle-set dinner-friends dinner-members self)
     let diets-network [ (list diet) ] of network-members
     let unique-diets-network remove-duplicates diets-network
@@ -832,14 +835,14 @@ to select-group-and-cook ;household procedure
           ;nr-dinner friends != 0
           [
 
-            let dinner-friends friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
-            ask dinner-friends [
+            let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+            ask dinner-friends-today [
               set at-home? false
               move-to patch-here
             ]
 
-            let dinner-members family-membership-neighbors with [at-home? = true and is-cook? = false]
-            set my-dinner-guests (turtle-set dinner-members dinner-friends self)
+            let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
+            set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
 
           ]
 
