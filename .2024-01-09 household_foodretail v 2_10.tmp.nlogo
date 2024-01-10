@@ -1264,6 +1264,14 @@ to get-groceries
 
   let available? member? meal-to-cook available-products ;check if food outlet sells required product
                                                          ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
+
+  ifelse available? = false [
+    get-alternative-groceries
+  ]
+
+  ;available? = true
+  [
+
   let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
 
   let stock-sufficient? "none"
@@ -1288,6 +1296,7 @@ to get-groceries
 
   ]
 
+
   ;show (list nr-dinner-guests requested-product stock-sufficient?)
 
 
@@ -1299,7 +1308,7 @@ to get-groceries
   ;show shopping-list
   ;show length-shopping-list
 
-  (ifelse ( available? = false or stock-sufficient? = false ) and neophobic? = false [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will get an alternative product
+  (ifelse (stock-sufficient? = false and neophobic? = false ) [ ;if the supermarket does not offer their requested product but they are neophilic enough, they will get an alternative product
 
     ifelse length-shopping-list > 1 [
           get-alternative-groceries
@@ -1311,7 +1320,7 @@ to get-groceries
 
     ]
 
-    ( available? = false or stock-sufficient? = false ) and neophobic? = true [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
+    (stock-sufficient? = false and neophobic? = true) [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
                                                                                 ; go back to while loop
       set supermarket-changes supermarket-changes - 1
       ;show supermarket-changes
@@ -1340,8 +1349,6 @@ to get-groceries
 
 
 
-
-
     available? = true [
 
       ;show (list shopping-list meal-to-cook)
@@ -1356,6 +1363,7 @@ to get-groceries
 
             price-influence? = false [
               ;do nothing - just obtain the requested product
+
             ]
 
             ;if something goes wrong
@@ -1492,11 +1500,13 @@ to purchase-groceries
 
 
 
+end
 
-
-
+to check-out-groceries
+  ;;
 
 end
+
 
 
 to cooking
@@ -2481,10 +2491,10 @@ to-report frequency [x freq-list]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-409
-10
-1027
-629
+406
+11
+1024
+630
 -1
 -1
 10.0
@@ -2550,7 +2560,7 @@ initial-nr-households
 initial-nr-households
 500
 5000
-1000.0
+600.0
 100
 1
 NIL
@@ -2664,7 +2674,7 @@ max-cs-meat
 max-cs-meat
 0
 1
-0.75
+0.5
 0.01
 1
 NIL
@@ -2694,7 +2704,7 @@ max-cs-veget
 max-cs-veget
 0
 1
-0.56
+0.5
 0.01
 1
 NIL
@@ -2709,7 +2719,7 @@ max-cs-vegan
 max-cs-vegan
 0
 1
-0.08
+0.5
 0.01
 1
 NIL
@@ -2723,7 +2733,7 @@ CHOOSER
 meal-selection
 meal-selection
 "status-based" "skills-based" "data-based" "majority" "collectivism" "random" "norm-random" "uncertainty-avoidance" "adventurous-cook"
-5
+6
 
 SLIDER
 7
@@ -2734,7 +2744,7 @@ p-me
 p-me
 0
 1
-0.9
+0.94
 0.01
 1
 NIL
@@ -2749,7 +2759,7 @@ p-fi
 p-fi
 0
 1
-0.03
+0.02
 0.01
 1
 NIL
@@ -2764,7 +2774,7 @@ p-vt
 p-vt
 0
 1
-0.06
+0.02
 0.01
 1
 NIL
@@ -2779,7 +2789,7 @@ p-vn
 p-vn
 0
 1
-0.06
+0.02
 0.01
 1
 NIL
@@ -2824,7 +2834,7 @@ meal-quality-variance
 meal-quality-variance
 0
 0.25
-0.25
+0.1
 0.01
 1
 NIL
@@ -2888,7 +2898,7 @@ collectivism-dim
 collectivism-dim
 0
 1
-0.73
+0.5
 0.01
 1
 NIL
@@ -2984,7 +2994,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 4
 30
-30.0
+10.0
 1
 1
 NIL
@@ -2999,7 +3009,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-60.0
+10.0
 5
 1
 NIL
@@ -3046,7 +3056,7 @@ lower-margin
 lower-margin
 0
 1
-0.18
+0.1
 0.01
 1
 NIL
@@ -3061,7 +3071,7 @@ upper-margin
 upper-margin
 0
 1
-0.26
+0.2
 0.01
 1
 NIL
@@ -3076,7 +3086,7 @@ no-sales-threshold
 no-sales-threshold
 0
 365
-30.0
+180.0
 10
 1
 NIL
@@ -3388,10 +3398,10 @@ NIL
 HORIZONTAL
 
 PLOT
-831
-10
-1031
-160
+1079
+175
+1279
+325
 Number of products in food outlets
 NIL
 NIL
