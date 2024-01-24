@@ -1104,6 +1104,8 @@ end
 
 to uncertainty-avoidance-based-meal-selection
 
+  ;in this meal selection procedure guests are prompted to try something new
+
   let chosen-meal diet ;choose to prepare the cook's preference
 
   ;ask dinner guests if they would like to eat the proposed meal
@@ -1591,7 +1593,7 @@ to update-diet-preference
     ;run this procedure
     [
 
-      ask members with [is-cook? = true and at-home? = true][
+      ask members with [at-home? = true][
         ;in this version people consider changing their diet preference after liking a meal several times, depending on their uncertainty avoidance
         (ifelse last-meal-enjoyment = "positive" [
 
