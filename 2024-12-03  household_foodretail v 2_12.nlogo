@@ -307,11 +307,13 @@ end
 
 to setup-friendships
   ifelse friendships? = true [
+    print ("")
     ask persons [
       let potential-friends other persons with [h-id != [h-id] of myself]
-      let nr-friendships random nr-friends ;people will create 0 or 1 friends
+      let nr-friendships random nr-friends
       repeat nr-friendships [create-friendship-with one-of potential-friends [set color 9.9]]
       set dinner-friends friendship-neighbors ;this should be an agentset
+      set label count dinner-friends
     ]
   ]
   ;friendships? = false
@@ -320,6 +322,9 @@ to setup-friendships
       set dinner-friends turtle-set self
     ]
   ]
+
+
+  ask friendships [set hidden? true]
 end
 
 
@@ -329,32 +334,35 @@ to setup-food-outlets
     move-to one-of patches with [not any? turtles-here]
     set shape "square 2"
     set color 25
-    set size 1
     set business-orientation random-float 2
     set opening-day 0
     set stock-check-list []
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
 
-    ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
-    let population-fraction (potential-costumers / count persons)
+    ;set size based on fraction of population served
     let nr-products "none"
+    let my-fraction ( potential-costumers / count persons )
 
-    ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
-    (ifelse population-fraction <= 0.25 [
+     ;based on quantiles of fraction of population served, the food outlet will set his size
+        (ifelse my-fraction <= 0.25 [
+      set size 1
       set nr-products 1
       ]
-      population-fraction > 0.25 and population-fraction <= 0.5 [
+      my-fraction > 0.25 and my-fraction <= 0.5 [
+        set size 2
         set nr-products 2
       ]
-      population-fraction > 0.25 and population-fraction <= 0.75 [
+      my-fraction > 0.25 and my-fraction <= 0.75 [
+        set size 3
         set nr-products 3
       ]
-      population-fraction > 0.75 [
+      my-fraction > 0.75 [
+        set size 4
         set nr-products 4
       ]
       ;if calculation of population-fraction did not go right
-      [print (list who "I cannot calculate how many products I will offer to my costumers")]
+      [print (list who "I cannot calculate my size and how many products I will offer to my costumers")]
     )
 
     set nr-protein-sources nr-products
@@ -455,7 +463,7 @@ to setup-food-outlets
       )
 
     set no-sales-count 0
-    set label product-selection
+    set label (list potential-costumers product-selection)
 
   ]
 
@@ -776,10 +784,6 @@ to select-group-and-cook ;household procedure
         )
 
 
-
-
-
-
         ask my-dinner-guests [
           set my-cook todays-cook ;setting todays cook for all dinner-group members
                                   ;print (list who my-cook) ;they all print themselves as my-cook
@@ -795,76 +799,88 @@ to select-group-and-cook ;household procedure
 
       ifelse members-at-home = 0  [
         set empty-house? true
-              ]
+      ]
 
       ;if at least 1 member is at home, cook a meal in this household
       [set empty-house? false]
 
       ;start cooking if someone is at home
 
-       (ifelse empty-house? = true [
-       ;do not cook a meal today
-      ]
+      (ifelse empty-house? = true [
+        ;do not cook a meal today
+        ]
 
-      empty-house? = false [
-
-        set meal-cooked? true
-        let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
-        let todays-dinner-guests members
-
-        ask todays-cook [
-
-          set is-cook? true
-
-          (ifelse dynamic-cs? = true [
-            set cooking-skills min (list 1 (cooking-skills + 0.01))
-            ]
-            dynamic-cs? = false [
-              ;do nothing - the cook does not improve his cooking
-            ]
-            ;if dynamic-cs? is not set for some reason
-            [print (list who "I don't know what to do with cooking skills")]
-          )
-
-          let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
+        empty-house? = false [
 
 
-          ;;if the cook has no friends
-          ifelse nr-dinner-friends = 0 [
-            set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
+          let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+          ;show todays-cook
+
+          ;if nobody is at home (anymore), the household will decide no meals will be cooked
+
+          ifelse todays-cook = nobody [
+            ;do nothing
           ]
-
-          ;;if the cook does have friends
-          ;nr-dinner friends != 0
+          ;otherwise, proceed
           [
 
-            let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
-            ask dinner-friends-today [
-              set at-home? false
-              move-to patch-here
+            set meal-cooked? true
+            let todays-dinner-guests members
+
+            ask todays-cook [
+
+              set is-cook? true
+
+              (ifelse dynamic-cs? = true [
+                set cooking-skills min (list 1 (cooking-skills + 0.01))
+                ]
+                dynamic-cs? = false [
+                  ;do nothing - the cook does not improve his cooking
+                ]
+                ;if dynamic-cs? is not set for some reason
+                [print (list who "I don't know what to do with cooking skills")]
+              )
+
+              let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
+
+
+              ;;if the cook has no friends
+              ifelse nr-dinner-friends = 0 [
+                set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
+              ]
+
+              ;;if the cook does have friends
+              ;nr-dinner friends != 0
+              [
+
+                let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+                ask dinner-friends-today [
+                  set at-home? false
+                  move-to patch-here
+                ]
+
+                let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
+                set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
+
+              ]
+
+              ask my-dinner-guests [
+                set my-cook todays-cook ;setting todays cook for all dinner-group members
+
+              ]
+
             ]
-
-            let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
-            set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
-
           ]
-
-          ask my-dinner-guests [
-            set my-cook todays-cook ;setting todays cook for all dinner-group members
-
-          ]
-
         ]
-      ]
 
-      ;if something went wrong
-      [show "I do not know if there's anyone in me"]
-        )
-
-    ]
-
+        ;if something went wrong
+        [show "I do not know if there's anyone in me"]
+      )
 
     ]
+
+
+  ]
 
 
   ask persons with [is-cook? = true] [
@@ -875,9 +891,9 @@ to select-group-and-cook ;household procedure
   ]
 end
 
-to select-meal ;person procedure
+to select-meal ;person procedure to create a shopping list
 
-  ;every meal selection procedure ends with a set meal-to-cook for the cook
+  ;every meal selection procedure ends with a set shopping list containing one or more meal-to-cook for the cook
 
   ask persons with [is-cook? = true]  [
 
@@ -1199,18 +1215,18 @@ to go-to-supermarket
 
       while [bought? = false] [
 
-        (ifelse my-supermarket = "none" and bought? = false and supermarket-changes != 0 [
+        (ifelse my-supermarket = "none" [
           ;this procedures sets supermarket != "none"
           ;show "I am selecting supermarket"
           select-supermarket
           ]
 
-          my-supermarket != "none" and bought? = false and supermarket-changes != 0 [
+          my-supermarket != "none" [
             ;this procedure can set bought? to true
             get-groceries
           ]
 
-          bought? = false and supermarket-changes = 0 and length-shopping-list > 1 [
+          bought? = false and supermarket-changes = 0 and length-shopping-list >= 1 [
             ;show ("I will try a new product despite my neophobia")
             ;this procedure sets bought? to true
             ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
@@ -1230,7 +1246,8 @@ to go-to-supermarket
       ]
 
       food-outlet-interaction? = false [
-        ;it is assumed the requested product is infinitely available
+        ;it is assumed the requested product is infinitely available'
+        set bought? true
       ]
 
       ;if the agent does not know if he should go to a supermarket or not
@@ -1251,150 +1268,253 @@ to select-supermarket
 end
 
 to get-groceries
-  ;all the cooks go get ingredients at the supermarket
+  ; All the cooks go get ingredients at the supermarket
 
   let length-shopping-list length shopping-list
 
-  ;check availability of meal-to-cook
+  ; Check availability of meal-to-cook
   let requested-product meal-to-cook
 
   let available-products "none"
 
   ask my-supermarket [
     set available-products product-selection
-    ;show stock-table
   ]
 
+  let available? member? meal-to-cook available-products ; Check if food outlet sells required product
+  let neophobic? neophobia > random-float 1 ; If uncertainty avoidance is larger than the result of the random float, the cook is neophobic
 
-  let available? member? meal-to-cook available-products ;check if food outlet sells required product
-                                                         ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
-
-  let neophobic? neophobia > random-float 1 ;if uncertainty avoidance is larger than the result of the random float, the cook is neophobic
-                                                        ;show (list "my neophobia is" neophobic?)
-
-  ;ifelse statement A: check availability
-  ;if A1 the ingredient is NOT available & the cook has NO (LOW) neophobia, they will select another meal in the procedure get-alternative-groceries
-
-    (ifelse (available? = false and neophobic? = false and length-shopping-list > 1) [
+  ; Check availability and handle various cases
+  ifelse (available? = false and neophobic? = false and length-shopping-list > 1) [
     get-alternative-groceries
-  ]
+  ] [
+    ifelse (available? = false and neophobic? = false and length-shopping-list = 1) [
+      draft-alternative-shopping-list
+      go-to-supermarket
+    ] [
+      ifelse (available? = false and neophobic? = true) [
+        set supermarket-changes supermarket-changes - 1
+        ifelse (supermarket-changes != 0) [
+          select-supermarket
+        ] [
+          ifelse (supermarket-changes = 0 and length-shopping-list > 1) [
+            get-alternative-groceries
+          ] [
+            ifelse (supermarket-changes = 0 and length-shopping-list = 1) [
+              draft-alternative-shopping-list
+              go-to-supermarket
+            ] [
+              show "I don't know if I should change supermarket or not and what to buy!"
+            ]
+          ]
+        ]
+      ] [
+        ; Ingredient is available, proceed to check stock
+        let nr-dinner-guests count my-dinner-guests ; Determine for how many people I need to get ingredients
+        let stock-sufficient? "none"
 
-  ;if A2 the ingredient is NOT available & the cook has (HIGH) neophobia, they will select another meal in the procedure get-alternative-groceries
-
-      (available? = false and neophobic? = true) [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
-                                                                                ; go back to while loop
-      set supermarket-changes supermarket-changes - 1
-      ;show supermarket-changes
-      ;show ("I am changing supermarket!")
-
-      ifelse supermarket-changes != 0 [
-        select-supermarket
-      ]
-
-      ;supermarket-changes = 0 this can happen if someone is neophobic and tried all supermarkets but could not find his preferred ingredient, so he will return to his first supermarket
-      [
-        set sorted-food-outlets sort-on [distance myself] food-outlets
-        set my-supermarket first sorted-food-outlets
-
-
-        ifelse length-shopping-list > 1 [
-          get-alternative-groceries
+        ; Check if food outlet has required product in stock for the quantity the cook needs
+        ask my-supermarket [
+          let current-stock (table:get stock-table requested-product)
+          ifelse (current-stock >= nr-dinner-guests) [
+            set stock-sufficient? true
+          ] [
+            set stock-sufficient? false
+          ]
         ]
 
-        ;shopping-list = 1
-        ;go home hungry
-        [show "I am so neophobic that I refuse to buy anything but my preferred product!"] ;should this have a consequence for the status of the cook?
+        ; Check availability of portions
+        ifelse (stock-sufficient? = false and neophobic? = false and length-shopping-list > 1) [
+          get-alternative-groceries
+        ] [
+          ifelse (stock-sufficient? = false and neophobic? = true and length-shopping-list > 1) [
+            select-supermarket
+          ] [
+            ifelse (stock-sufficient? = false and neophobic? = true and length-shopping-list = 1) [
+              draft-alternative-shopping-list
+              get-groceries
+            ] [
+              ;show "I am so neophobic that I refuse to buy anything buy my preferred product!"
+            ]
+          ]
+        ]
       ]
-
     ]
-
-  ;if A3 the ingredient is available: the cook will check the availability of portions
-
-
-     ;available? = true, continue to determine if the stock is sufficient for the selected product
-  [
-
-  let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
-
-  let stock-sufficient? "none"
-
-  ;check if food outlet has required product still in stock for the quantity the cook needs
-  ask my-supermarket [
-
-    let current-stock (table:get stock-table requested-product)
-    ;show (list requested-product current-stock)
-
-    ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
-
-    (ifelse current-stock >= nr-dinner-guests [
-      set stock-sufficient? true
-      ]
-      current-stock < nr-dinner-guests [
-        set stock-sufficient? false
-      ]
-      ;if something goes wrong
-      [show "I cannot determine if the shop has sufficient stock of my product"]
-    )
-
   ]
 
- ;ifelse statement B: check availability of portions
-;if B1 the food outlet does NOT have enough stock and cook has (NO/LOW) neophobia, but alternative product
-
-      (ifelse (stock-sufficient? = false and neophobic? = false and length-shopping-list > 1) [
-        get-alternative-groceries
-      ]
-
-     ;if B2 the food outlet does NOT enough stock and the cook has (HIGH) neophobia: go to another supermarket
-
-  (stock-sufficient? = false and neophobic? = true) [
-
-         set sorted-food-outlets sort-on [distance myself] food-outlets
-        set my-supermarket first sorted-food-outlets
-
-    ifelse length-shopping-list > 1 [
-          get-alternative-groceries
-        ]
-
-        ;shopping-list = 1
-        ;go home hungry
-        [show "I am so neophobic that I refuse to buy anything but my preferred product!"]
-
-    ]
-
-      ;if B3 the food outlet has sufficient stock and the cook is neophilic, go to check-out
-      [
-
-      ;ifelse statement C: check affordability
-
-      ;if C1 if price-influence is activated, go to procedure to purchase groceries
-
-            (ifelse price-influence? = true [
-
-        purchase-groceries
-
-            ]
-
-        ;if C2 price-influence is deactivated, check out your groceries
-            price-influence? = false [
-              ;do nothing - just obtain the requested product
-            check-out-groceries
-            ]
-
-            ;if C3 something goes wrong
-            [show "I cannot determine if I can afford this product"]
-            )
-      ]
-        )
-    ]
-    )
-
-
-
-
-
+  ; Affordability check
+  ifelse (price-influence? = true) [
+    purchase-groceries
+  ] [
+    check-out-groceries
+  ]
 
 end
+
+;to get-groceries
+;  ;all the cooks go get ingredients at the supermarket
+;
+;  let length-shopping-list length shopping-list
+;
+;  ;check availability of meal-to-cook
+;  let requested-product meal-to-cook
+;
+;  let available-products "none"
+;
+;  ask my-supermarket [
+;    set available-products product-selection
+;    ;show stock-table
+;  ]
+;
+;
+;  let available? member? meal-to-cook available-products ;check if food outlet sells required product
+;                                                         ; show (word "My meal is \"" meal-to-cook "\" options available are " available-products " and it is available? " available?)
+;
+;  let neophobic? neophobia > random-float 1 ;if uncertainty avoidance is larger than the result of the random float, the cook is neophobic
+;                                                        ;show (list "my neophobia is" neophobic?)
+;
+;  ;ifelse statement A: check availability
+;  ;if A1 the ingredient is NOT available & the cook has NO (LOW) neophobia, they will select another meal in the procedure get-alternative-groceries
+;
+;    ifelse (available? = false and neophobic? = false and length-shopping-list > 1) [
+;    get-alternative-groceries
+;  ]
+;
+;    (available? = false and neophobic? = false and length-shopping-list = 1) [
+;      draft-alternative-shopping-list
+;      go-to-supermarket
+;    ]
+;
+;  ;if A2 the ingredient is NOT available & the cook has (HIGH) neophobia, they will select another meal in the procedure get-alternative-groceries
+;
+;      (available? = false and neophobic? = true) [ ;if the supermarket does not offer their requested product but they are neophobic, they will try another supermarket
+;                                                                                ; go back to while loop
+;      set supermarket-changes supermarket-changes - 1
+;      ;show supermarket-changes
+;      ;show ("I am changing supermarket!")
+;
+;    ;This ifelse is nested in available? = false and neophobic? = true
+;
+;      (ifelse supermarket-changes != 0 [
+;        select-supermarket
+;      ]
+;
+;      (supermarket-changes = 0 and length-shopping-list > 1) [ ;this can happen if someone is neophobic and tried all supermarkets but could not find his preferred ingredient, so he will return to his first supermarket
+;
+;        get-alternative-groceries
+;        ]
+;
+;        (supermarket-changes = 0 and length-shopping-list = 1) [ ;this can happen is someone is neophobic and tried all supermarkets, but he does not have anything else on his shopping list. He will get a new shopping list, so he cannot return home empty-handed
+;        ;create a new shopping list with 3 alternative ingredients
+;          draft-alternative-shopping-list
+;          go-to-supermarket
+;        ]
+;
+;       ;if something goes wrong
+;        [show "I don't know if I should change supermarket or not and what to buy!"]
+;       )
+;
+;      ]
+;
+;
+;
+;  ;if A3 the ingredient is available: the cook will check the availability of portions
+;
+;
+;  [ ;available? = true, continue to determine if the stock is sufficient for the selected product
+;
+;
+;    let nr-dinner-guests count my-dinner-guests ;determine for how many people I need to get ingredients
+;
+;    let stock-sufficient? "none"
+;
+;    ;check if food outlet has required product still in stock for the quantity the cook needs
+;    ask my-supermarket [
+;
+;      let current-stock (table:get stock-table requested-product)
+;      ;show (list requested-product current-stock)
+;
+;      ;   show (word "I need " nr-dinner-guests " of " requested-product " and I have " table:get stock-table requested-product)
+;
+;      (ifelse current-stock >= nr-dinner-guests [
+;        set stock-sufficient? true
+;        ]
+;        current-stock < nr-dinner-guests [
+;          set stock-sufficient? false
+;        ]
+;        ;if something goes wrong
+;        [show "I cannot determine if the shop has sufficient stock of my product"]
+;      )
+;
+;    ]
+;  ]
+;
+; ;ifelse statement B: check availability of portions
+;;if B1 the food outlet does NOT have enough stock and cook has (NO/LOW) neophobia, buy alternative product
+;
+;      ifelse (stock-sufficient? = false and neophobic? = false and length-shopping-list > 1) [
+;        get-alternative-groceries
+;      ]
+;
+;     ;if B2 the food outlet does NOT enough stock and the cook has (HIGH) neophobia: go to another supermarket
+;
+;  (stock-sufficient? = false and neophobic? = true and length-shopping-list > 1) [
+;
+;    select-supermarket
+;
+;        ]
+;
+;        (stock-sufficient? = false and neophobic? = true and length-shopping-list = 1) [
+;          draft-alterantive-shopping-list
+;          get-groceries
+;        ]
+;
+;        ;shopping-list = 1
+;        ;go home hungry
+;        [show "I am so neophobic that I refuse to buy anything but my preferred product!"]
+;
+;
+;
+;    ;if B3 the food outlet has sufficient stock and the cook is neophilic, proceed to check-out
+;    [   ;ifelse statement C: check affordability
+;
+;
+;      ifelse price-influence? = true [
+;        purchase-groceries
+;      ]
+;
+;      ;if C2 price-influence is deactivated, check out your groceries
+;      price-influence? = false [
+;        ;do nothing - just obtain the requested product
+;        check-out-groceries
+;      ]
+;      ;if C3 something goes wrong
+;      [show "I cannot determine if I can afford this product"]
+;    ]
+;
+;
+;
+;
+;
+;
+;end
+
+
+to draft-alternative-shopping-list ;this procedure should take place in the supermarket where the cook is at that moment and include the ingredients that the supermarket offers
+
+  set shopping-list []
+  let alternative-shopping-list []
+
+  ask my-supermarket [
+    let new-meal one-of product-selection
+    set alternative-shopping-list (list new-meal)
+  ]
+
+  set shopping-list alternative-shopping-list
+  ;show  (list "I set my shopping list to the product selection of my supermarket" shopping-list)
+
+end
+
 
 
 
@@ -1402,7 +1522,10 @@ to get-alternative-groceries
 
   ;show "I am getting alternative groceries"
   set shopping-list remove-item 0 shopping-list
-    set meal-to-cook item 0 shopping-list
+  set meal-to-cook item 0 shopping-list
+
+  set sorted-food-outlets sort-on [distance myself] food-outlets
+  set my-supermarket first sorted-food-outlets
 
   set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to get his requested product in the first supermarket of his choice
 
@@ -1599,7 +1722,7 @@ to update-diet-preference
 
           ;update table with meal enjoyments for each type of diet based on uncertainty avoidance
           let current-meal-enjoyment table:get meal-enjoyments-table my-last-dinner
-          let update-meal-enjoyment  > random-float 1 ;this evaluates to FALSE (I am too neophobic to consider liking new foods) to TRUE (I am neophilic enough to consider liking new foods)
+          let update-meal-enjoyment neophobia > random-float 1 ;this evaluates to FALSE (I am too neophobic to consider liking new foods) to TRUE (I am neophilic enough to consider liking new foods)
 
           (ifelse update-meal-enjoyment = true [
             table:put meal-enjoyments-table my-last-dinner (current-meal-enjoyment + 1)
@@ -2129,16 +2252,16 @@ to visualization
       set size 1
       ]
       status > 0.25 and status <= 0.5 [
-        set size 1.2
+        set size 1.5
       ]
       status > 0.5 and status <= 0.75 [
-        set size 1.4
+        set size 2
       ]
       status > 0.75 and status <= 1 [
-        set size 1.6
+        set size 2.5
       ]
       ;if status exceeds 1
-      [set size 1.8]
+      [set size 2]
     )
 
     ;set color according to diet
@@ -2577,10 +2700,10 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-500
+5
 5000
-500.0
-100
+405.0
+10
 1
 NIL
 HORIZONTAL
@@ -2608,7 +2731,7 @@ INPUTBOX
 162
 599
 current-seed
--6.876598E7
+2.059067105E9
 1
 0
 Number
@@ -2838,7 +2961,7 @@ sd-family-size
 sd-family-size
 0
 2
-1.0
+0.0
 1
 1
 NIL
@@ -2876,7 +2999,7 @@ SWITCH
 472
 friendships?
 friendships?
-1
+0
 1
 -1000
 
@@ -2943,7 +3066,7 @@ nr-friends
 nr-friends
 2
 10
-2.0
+6.0
 1
 1
 NIL
@@ -3011,9 +3134,9 @@ SLIDER
 125
 initial-nr-food-outlets
 initial-nr-food-outlets
-4
+1
 30
-10.0
+12.0
 1
 1
 NIL
@@ -3028,7 +3151,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-20.0
+30.0
 5
 1
 NIL
@@ -3139,7 +3262,7 @@ SWITCH
 512
 restocking?
 restocking?
-0
+1
 1
 -1000
 
@@ -3252,7 +3375,7 @@ power-distance-dim
 power-distance-dim
 0
 1
-0.5
+0.47
 0.01
 1
 NIL
@@ -3336,8 +3459,8 @@ SLIDER
 p-influencers
 p-influencers
 0
-0.25
-0.1
+1
+0.6
 0.01
 1
 NIL
@@ -3351,7 +3474,7 @@ CHOOSER
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-2
+3
 
 SWITCH
 964
@@ -3360,14 +3483,14 @@ SWITCH
 670
 influencers?
 influencers?
-1
+0
 1
 -1000
 
 SWITCH
 1096
 706
-1281
+1269
 739
 more-sustainable-shops?
 more-sustainable-shops?
@@ -3391,10 +3514,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-1293
-707
-1457
-740
+1273
+705
+1446
+738
 less-animal-proteins?
 less-animal-proteins?
 1
@@ -3402,10 +3525,10 @@ less-animal-proteins?
 -1000
 
 SLIDER
-1295
-747
-1468
-780
+1272
+743
+1445
+776
 p-less-animal-proteins
 p-less-animal-proteins
 0
@@ -3417,10 +3540,10 @@ NIL
 HORIZONTAL
 
 PLOT
-1688
-275
-1888
-425
+1509
+657
+1709
+807
 Number of products in food outlets
 NIL
 NIL
@@ -3776,7 +3899,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.3.0
+NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

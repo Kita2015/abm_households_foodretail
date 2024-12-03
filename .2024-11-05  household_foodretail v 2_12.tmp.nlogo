@@ -307,11 +307,13 @@ end
 
 to setup-friendships
   ifelse friendships? = true [
+    print ("")
     ask persons [
       let potential-friends other persons with [h-id != [h-id] of myself]
-      let nr-friendships random nr-friends ;people will create 0 or 1 friends
+      let nr-friendships random nr-friends
       repeat nr-friendships [create-friendship-with one-of potential-friends [set color 9.9]]
       set dinner-friends friendship-neighbors ;this should be an agentset
+      set label count dinner-friends
     ]
   ]
   ;friendships? = false
@@ -320,6 +322,9 @@ to setup-friendships
       set dinner-friends turtle-set self
     ]
   ]
+
+
+  ask friendships [set hidden? true]
 end
 
 
@@ -329,12 +334,37 @@ to setup-food-outlets
     move-to one-of patches with [not any? turtles-here]
     set shape "square 2"
     set color 25
-    set size 1
     set business-orientation random-float 2
     set opening-day 0
     set stock-check-list []
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
+
+    ;set size based on fraction of population served
+    let my-fraction ( potential-costumers / count persons )
+
+     ;based on quantiles of fraction of population served, the food outlet will set his size
+        (ifelse my-fraction <= 0.25 [
+      set size 1
+      set nr-products 1
+      ]
+      my-fraction > 0.25 and my-fraction <= 0.5 [
+        set set size 2
+        set nr-products 2
+      ]
+      my-fraction > 0.25 and my-fraction <= 0.75 [
+        set size 3
+      ]
+      my-fraction > 0.75 [
+        set size 4
+      ]
+      ;if calculation of population-fraction did not go right
+      [print (list who "I cannot calculate how many products I will offer to my costumers")]
+    )
+
+
+        set size 1
+
 
     ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
     let population-fraction (potential-costumers / count persons)
@@ -342,13 +372,13 @@ to setup-food-outlets
 
     ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
     (ifelse population-fraction <= 0.25 [
-      set nr-products 1
+
       ]
       population-fraction > 0.25 and population-fraction <= 0.5 [
-        set nr-products 2
+
       ]
       population-fraction > 0.25 and population-fraction <= 0.75 [
-        set nr-products 3
+
       ]
       population-fraction > 0.75 [
         set nr-products 4
@@ -455,7 +485,7 @@ to setup-food-outlets
       )
 
     set no-sales-count 0
-    set label product-selection
+    set label (list potential-costumers product-selection)
 
   ]
 
@@ -776,10 +806,6 @@ to select-group-and-cook ;household procedure
         )
 
 
-
-
-
-
         ask my-dinner-guests [
           set my-cook todays-cook ;setting todays cook for all dinner-group members
                                   ;print (list who my-cook) ;they all print themselves as my-cook
@@ -795,76 +821,88 @@ to select-group-and-cook ;household procedure
 
       ifelse members-at-home = 0  [
         set empty-house? true
-              ]
+      ]
 
       ;if at least 1 member is at home, cook a meal in this household
       [set empty-house? false]
 
       ;start cooking if someone is at home
 
-       (ifelse empty-house? = true [
-       ;do not cook a meal today
-      ]
+      (ifelse empty-house? = true [
+        ;do not cook a meal today
+        ]
 
-      empty-house? = false [
-
-        set meal-cooked? true
-        let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
-        let todays-dinner-guests members
-
-        ask todays-cook [
-
-          set is-cook? true
-
-          (ifelse dynamic-cs? = true [
-            set cooking-skills min (list 1 (cooking-skills + 0.01))
-            ]
-            dynamic-cs? = false [
-              ;do nothing - the cook does not improve his cooking
-            ]
-            ;if dynamic-cs? is not set for some reason
-            [print (list who "I don't know what to do with cooking skills")]
-          )
-
-          let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
+        empty-house? = false [
 
 
-          ;;if the cook has no friends
-          ifelse nr-dinner-friends = 0 [
-            set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
+          let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+          ;show todays-cook
+
+          ;if nobody is at home (anymore), the household will decide no meals will be cooked
+
+          ifelse todays-cook = nobody [
+            ;do nothing
           ]
-
-          ;;if the cook does have friends
-          ;nr-dinner friends != 0
+          ;otherwise, proceed
           [
 
-            let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
-            ask dinner-friends-today [
-              set at-home? false
-              move-to patch-here
+            set meal-cooked? true
+            let todays-dinner-guests members
+
+            ask todays-cook [
+
+              set is-cook? true
+
+              (ifelse dynamic-cs? = true [
+                set cooking-skills min (list 1 (cooking-skills + 0.01))
+                ]
+                dynamic-cs? = false [
+                  ;do nothing - the cook does not improve his cooking
+                ]
+                ;if dynamic-cs? is not set for some reason
+                [print (list who "I don't know what to do with cooking skills")]
+              )
+
+              let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
+
+
+              ;;if the cook has no friends
+              ifelse nr-dinner-friends = 0 [
+                set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
+              ]
+
+              ;;if the cook does have friends
+              ;nr-dinner friends != 0
+              [
+
+                let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+                ask dinner-friends-today [
+                  set at-home? false
+                  move-to patch-here
+                ]
+
+                let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
+                set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
+
+              ]
+
+              ask my-dinner-guests [
+                set my-cook todays-cook ;setting todays cook for all dinner-group members
+
+              ]
+
             ]
-
-            let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
-            set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
-
           ]
-
-          ask my-dinner-guests [
-            set my-cook todays-cook ;setting todays cook for all dinner-group members
-
-          ]
-
         ]
-      ]
 
-      ;if something went wrong
-      [show "I do not know if there's anyone in me"]
-        )
-
-    ]
-
+        ;if something went wrong
+        [show "I do not know if there's anyone in me"]
+      )
 
     ]
+
+
+  ]
 
 
   ask persons with [is-cook? = true] [
@@ -1230,7 +1268,8 @@ to go-to-supermarket
       ]
 
       food-outlet-interaction? = false [
-        ;it is assumed the requested product is infinitely available
+        ;it is assumed the requested product is infinitely available'
+        set bought? true
       ]
 
       ;if the agent does not know if he should go to a supermarket or not
@@ -1489,7 +1528,8 @@ to draft-alternative-shopping-list ;this procedure should take place in the supe
   let alternative-shopping-list []
 
   ask my-supermarket [
-    set alternative-shopping-list product-selection
+    let new-meal one-of product-selection
+    set alternative-shopping-list (list new-meal)
   ]
 
   set shopping-list alternative-shopping-list
@@ -2234,16 +2274,16 @@ to visualization
       set size 1
       ]
       status > 0.25 and status <= 0.5 [
-        set size 1.2
+        set size 1.5
       ]
       status > 0.5 and status <= 0.75 [
-        set size 1.4
+        set size 2
       ]
       status > 0.75 and status <= 1 [
-        set size 1.6
+        set size 2.5
       ]
       ;if status exceeds 1
-      [set size 1.8]
+      [set size 2]
     )
 
     ;set color according to diet
@@ -2682,9 +2722,9 @@ SLIDER
 126
 initial-nr-households
 initial-nr-households
-25
+5
 5000
-25.0
+65.0
 10
 1
 NIL
@@ -2713,7 +2753,7 @@ INPUTBOX
 162
 599
 current-seed
--1.387630454E9
+1.462568126E9
 1
 0
 Number
@@ -2981,7 +3021,7 @@ SWITCH
 472
 friendships?
 friendships?
-1
+0
 1
 -1000
 
@@ -3048,7 +3088,7 @@ nr-friends
 nr-friends
 2
 10
-3.0
+6.0
 1
 1
 NIL
@@ -3118,7 +3158,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 1
 30
-2.0
+8.0
 1
 1
 NIL
@@ -3133,7 +3173,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-20.0
+30.0
 5
 1
 NIL
@@ -3357,7 +3397,7 @@ power-distance-dim
 power-distance-dim
 0
 1
-0.5
+0.47
 0.01
 1
 NIL
@@ -3441,8 +3481,8 @@ SLIDER
 p-influencers
 p-influencers
 0
-0.25
-0.1
+1
+0.6
 0.01
 1
 NIL
@@ -3456,7 +3496,7 @@ CHOOSER
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-2
+3
 
 SWITCH
 964
@@ -3465,7 +3505,7 @@ SWITCH
 670
 influencers?
 influencers?
-1
+0
 1
 -1000
 
@@ -3522,10 +3562,10 @@ NIL
 HORIZONTAL
 
 PLOT
-1688
-275
-1888
-425
+1509
+657
+1709
+807
 Number of products in food outlets
 NIL
 NIL
