@@ -341,6 +341,7 @@ to setup-food-outlets
     set potential-costumers count persons in-radius food-outlet-service-area
 
     ;set size based on fraction of population served
+    let nr-products "none"
     let my-fraction ( potential-costumers / count persons )
 
      ;based on quantiles of fraction of population served, the food outlet will set his size
@@ -349,42 +350,19 @@ to setup-food-outlets
       set nr-products 1
       ]
       my-fraction > 0.25 and my-fraction <= 0.5 [
-        set set size 2
+        set size 2
         set nr-products 2
       ]
       my-fraction > 0.25 and my-fraction <= 0.75 [
         set size 3
+        set nr-products 3
       ]
       my-fraction > 0.75 [
         set size 4
-      ]
-      ;if calculation of population-fraction did not go right
-      [print (list who "I cannot calculate how many products I will offer to my costumers")]
-    )
-
-
-        set size 1
-
-
-    ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
-    let population-fraction (potential-costumers / count persons)
-    let nr-products "none"
-
-    ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
-    (ifelse population-fraction <= 0.25 [
-
-      ]
-      population-fraction > 0.25 and population-fraction <= 0.5 [
-
-      ]
-      population-fraction > 0.25 and population-fraction <= 0.75 [
-
-      ]
-      population-fraction > 0.75 [
         set nr-products 4
       ]
       ;if calculation of population-fraction did not go right
-      [print (list who "I cannot calculate how many products I will offer to my costumers")]
+      [print (list who "I cannot calculate my size and how many products I will offer to my costumers")]
     )
 
     set nr-protein-sources nr-products
@@ -2582,6 +2560,12 @@ to-report vegan-stock
   report vegan-in-stock
 end
 
+;total stocks
+to-report total-stocks
+  let all-stocks (meat-stock + fish-stock + vegetarian-stock + vegan-stock)
+  report all-stocks
+end
+
 ;; relative change in meals cooked ;;
 
 to-report relative-change-meat-cooked
@@ -2753,7 +2737,7 @@ INPUTBOX
 162
 599
 current-seed
-1.462568126E9
+-1.447226809E9
 1
 0
 Number
@@ -3158,7 +3142,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 1
 30
-8.0
+12.0
 1
 1
 NIL
@@ -3284,7 +3268,7 @@ SWITCH
 512
 restocking?
 restocking?
-1
+0
 1
 -1000
 
@@ -3505,7 +3489,7 @@ SWITCH
 670
 influencers?
 influencers?
-0
+1
 1
 -1000
 
@@ -3542,7 +3526,7 @@ SWITCH
 738
 less-animal-proteins?
 less-animal-proteins?
-1
+0
 1
 -1000
 
@@ -3578,6 +3562,25 @@ false
 "" ""
 PENS
 "default" 1.0 1 -16777216 true "" "histogram(nr-of-products)"
+
+PLOT
+859
+63
+1059
+213
+Population vs Stocks
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -5987164 true "" "plot total-stocks"
+"pen-1" 1.0 0 -16777216 true "" "plot count persons"
 
 @#$#@#$#@
 ## WHAT IS IT?

@@ -2560,6 +2560,12 @@ to-report vegan-stock
   report vegan-in-stock
 end
 
+;total stocks
+to-report total-stocks
+  let all-stocks (meat-stock + fish-stock + vegetarian-stock + vegan-stock)
+  report all-stocks
+end
+
 ;; relative change in meals cooked ;;
 
 to-report relative-change-meat-cooked
@@ -2702,7 +2708,7 @@ initial-nr-households
 initial-nr-households
 5
 5000
-405.0
+95.0
 10
 1
 NIL
@@ -2731,7 +2737,7 @@ INPUTBOX
 162
 599
 current-seed
-2.059067105E9
+-8.12645406E8
 1
 0
 Number
@@ -2999,7 +3005,7 @@ SWITCH
 472
 friendships?
 friendships?
-0
+1
 1
 -1000
 
@@ -3483,7 +3489,7 @@ SWITCH
 670
 influencers?
 influencers?
-0
+1
 1
 -1000
 
@@ -3556,6 +3562,25 @@ false
 "" ""
 PENS
 "default" 1.0 1 -16777216 true "" "histogram(nr-of-products)"
+
+PLOT
+859
+63
+1059
+213
+Population vs Stocks
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -5987164 true "" "plot total-stocks"
+"pen-1" 1.0 0 -16777216 true "" "plot count persons"
 
 @#$#@#$#@
 ## WHAT IS IT?
