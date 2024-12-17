@@ -445,10 +445,10 @@ to go
 
   ;ask cooks
   select-meal
-  go-to-supermarket
-  cooking
+  start-groceries
 
   ;ask persons
+  cooking
   set-meal-evaluation
   update-diet-preference
   evaluate-meal
@@ -916,147 +916,127 @@ end
 
 ;;; START OF GETTING GROCERIES ;;;
 
-to go-to-supermarket
+to start-groceries
 
-  ask persons with [is-cook? = true and meal-to-cook != "none"] [
+  ask persons with [is-cook? = true and meal-to-cook != "none" and bought? = false] [
 
-    let length-shopping-list length shopping-list
+    ifelse food-outlet-interaction? = true [
 
-    (ifelse food-outlet-interaction? = true [
-
-      while [bought? = false] [
-
-        (ifelse my-supermarket = "none" [
-          ;this procedures sets supermarket != "none"
-          ;show "I am selecting supermarket"
-          select-supermarket
-          ]
-
-          my-supermarket != "none" [
-            ;this procedure can set bought? to true
-            get-groceries
-          ]
-
-          bought? = false and supermarket-changes = 0 and length-shopping-list >= 1 [
-            ;show ("I will try a new product despite my neophobia")
-            ;this procedure sets bought? to true
-            ;the agent has run out of supermarkets to search for his requested product because he was too neophobic to try an alternative product
-            set sorted-food-outlets sort-on [distance myself] food-outlets
-            set my-supermarket first sorted-food-outlets
-            ;the agent will have to get an alternative product because he cannot go home empty-handed
-            get-alternative-groceries
-          ]
-
-          ;if something goes wrong
-          [show ("I cannot go to the supermarket")]
-        )
-
-
-
+      if my-supermarket = "none" [
+        select-supermarket
       ]
-      ]
+     get-groceries
 
-      food-outlet-interaction? = false [
-        ;it is assumed the requested product is infinitely available'
-        set bought? true
-      ]
-
-      ;if the agent does not know if he should go to a supermarket or not
-      [print (list who "I do not know if I should go to the supermarket")]
-    )
+    ] [
+      set bought? true
+    ]
 
   ]
+
 
 end
 
 to select-supermarket
 
+  ask persons with [is-cook? and meal-to-cook != "none" and bought? = false] [
+
+  ; This procedure sets supermarket != "none"
   set my-supermarket first sorted-food-outlets
   set sorted-food-outlets but-first sorted-food-outlets
-
-  ;show my-supermarket
+  ;show (list "My supermarket" my-supermarket)
+  ]
 
 end
 
 to get-groceries
+
+  ask persons with [is-cook? = true and my-supermarket != "none" and bought? = false] [
   ; All the cooks go get ingredients at the supermarket
 
+  ; Variables
   let length-shopping-list length shopping-list
-
-  ; Check availability of meal-to-cook
   let requested-product meal-to-cook
-
   let available-products "none"
+  let available? false
+  let neophobic? (neophobia > random-float 1)
 
+  ; Check supermarket product availability
   ask my-supermarket [
     set available-products product-selection
   ]
+  set available? member? meal-to-cook available-products
 
-  let available? member? meal-to-cook available-products ; Check if food outlet sells required product
-  let neophobic? neophobia > random-float 1 ; If uncertainty avoidance is larger than the result of the random float, the cook is neophobic
+  ; Decision tree based on availability and neophobia
+  if not available? [ handle-unavailable-product length-shopping-list neophobic? ]
+  if available?     [ handle-available-product requested-product length-shopping-list neophobic? ]
 
-  ; Check availability and handle various cases
-  ifelse (available? = false and neophobic? = false and length-shopping-list > 1) [
-    get-alternative-groceries
-  ] [
-    ifelse (available? = false and neophobic? = false and length-shopping-list = 1) [
-      draft-alternative-shopping-list
-      go-to-supermarket
-    ] [
-      ifelse (available? = false and neophobic? = true) [
-        set supermarket-changes supermarket-changes - 1
-        ifelse (supermarket-changes != 0) [
-          select-supermarket
-        ] [
-          ifelse (supermarket-changes = 0 and length-shopping-list > 1) [
-            get-alternative-groceries
-          ] [
-            ifelse (supermarket-changes = 0 and length-shopping-list = 1) [
-              draft-alternative-shopping-list
-              go-to-supermarket
-            ] [
-              show "I don't know if I should change supermarket or not and what to buy!"
-            ]
-          ]
-        ]
-      ] [
-        ; Ingredient is available, proceed to check stock
-        let nr-dinner-guests count my-dinner-guests ; Determine for how many people I need to get ingredients
-        let stock-sufficient? "none"
-
-        ; Check if food outlet has required product in stock for the quantity the cook needs
-        ask my-supermarket [
-          let current-stock (table:get stock-table requested-product)
-          ifelse (current-stock >= nr-dinner-guests) [
-            set stock-sufficient? true
-          ] [
-            set stock-sufficient? false
-          ]
-        ]
-
-        ; Check availability of portions
-        ifelse (stock-sufficient? = false and neophobic? = false and length-shopping-list > 1) [
-          get-alternative-groceries
-        ] [
-          ifelse (stock-sufficient? = false and neophobic? = true and length-shopping-list > 1) [
-            select-supermarket
-          ] [
-            ifelse (stock-sufficient? = false and neophobic? = true and length-shopping-list = 1) [
-              draft-alternative-shopping-list
-              get-groceries
-            ] [
-              ;show "I am so neophobic that I refuse to buy anything buy my preferred product!"
-            ]
-          ]
-        ]
-      ]
+  ; Final step: check-out groceries
+  if bought? = false [
+  check-out-groceries
     ]
   ]
-
-
-    check-out-groceries
-
 end
+
+; Handle cases when the product is unavailable
+to handle-unavailable-product [length-shopping-list neophobic?]
+  if (neophobic? = false) [
+    ifelse (length-shopping-list > 1) [
+      get-alternative-groceries
+    ] [
+      draft-alternative-shopping-list
+      select-supermarket
+    ]
+  ]
+  if (neophobic? = true) [
+    set supermarket-changes supermarket-changes - 1
+    ifelse (supermarket-changes > 0) [
+      select-supermarket
+    ] [
+      handle-exhausted-supermarkets length-shopping-list
+    ]
+  ]
+end
+
+; Handle cases where all supermarkets have been tried
+to handle-exhausted-supermarkets [length-shopping-list]
+  ifelse (length-shopping-list > 1) [
+    get-alternative-groceries
+  ] [
+    draft-alternative-shopping-list
+    select-supermarket
+  ]
+end
+
+; Handle cases when the product is available
+to handle-available-product [requested-product length-shopping-list neophobic?]
+  let nr-dinner-guests count my-dinner-guests
+  let stock-sufficient? false
+
+  ; Check stock levels for the requested product
+  ask my-supermarket [
+    let current-stock (table:get stock-table requested-product)
+    set stock-sufficient? (current-stock >= nr-dinner-guests)
+  ]
+
+  ; Decide actions based on stock availability and neophobia
+  if not stock-sufficient? [
+    handle-insufficient-stock length-shopping-list neophobic?
+  ]
+end
+
+; Handle insufficient stock scenarios
+to handle-insufficient-stock [length-shopping-list neophobic?]
+  ifelse (not neophobic?) [
+    if (length-shopping-list > 1) [ get-alternative-groceries ]
+  ] [
+    ifelse (length-shopping-list > 1) [
+      select-supermarket
+    ] [
+      draft-alternative-shopping-list
+    ]
+  ]
+end
+
 
 to draft-alternative-shopping-list ;this procedure should take place in the supermarket where the cook is at that moment and include the ingredients that the supermarket offers
 
@@ -1070,11 +1050,9 @@ to draft-alternative-shopping-list ;this procedure should take place in the supe
 
   set shopping-list alternative-shopping-list
   ;show  (list "I set my shopping list to the product selection of my supermarket" shopping-list)
+  get-groceries
 
 end
-
-
-
 
 to get-alternative-groceries
 
@@ -1126,18 +1104,23 @@ to check-out-groceries
       table:put sales-table requested-product (current-sales + nr-dinner-guests)
       ;show (list table:get sales-table requested-product requested-product)
 
+
     ]
 
+    show (list "I just bought groceries - before check-out" bought?)
     set bought? true
+    show (list "I just bought groceries" bought?)
   ]
 
 end
 
+;;; END OF GETTING GROCERIES;;;
 
+;;; START OF HAVING DINNER ;;;
 
 to cooking
 
-  ask persons with [is-cook? = true]  [
+  ask persons with [is-cook? = true and bought? = true]  [
 
     set my-last-dinner meal-to-cook
     let the-last-dinner meal-to-cook
@@ -1351,71 +1334,74 @@ to check-sales ;food-outlet procedure
 
 
     ;if the supermarket has had no sales for several weeks, it will go out of business
-    (ifelse no-sales-count <= no-sales-threshold [
-      ;do nothing - stay in business
-      ]
-
-      no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
-        hatch 1 [
-          move-to one-of patches with [not any? turtles-here]
-          set opening-day ticks
-
-          ;new supermarket is provided with the same attributes as the supermarket that went out of business, except for stock
-          ;provide new supermarket with another assortment and reset all stocks
-
-          ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
-          let population-fraction (potential-costumers / count persons)
-          let nr-products "none"
-
-          ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
-          (ifelse population-fraction <= 0.25 [
-            set nr-products 1
-            ]
-            population-fraction > 0.25 and population-fraction <= 0.5 [
-              set nr-products 2
-            ]
-            population-fraction > 0.25 and population-fraction <= 0.75 [
-              set nr-products 3
-            ]
-            population-fraction > 0.75 [
-              set nr-products 4
-            ]
-            ;if calculation of population-fraction did not go right
-            [print (list who "I cannot calculate how many products I will offer to my costumers")]
-          )
-
-          set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
-
-          ;food outlets determine for each product in their product-selection, how much of this product is in stock
-
-          set initial-stock-table table:make
-          set sales-table table:make
-          set stock-table table:make
-
-          foreach diets-list [ diets ->
-            table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-              round (potential-costumers / nr-products)
-            ] [
-              0
-            ]
-            table:put sales-table diets 0
-            table:put stock-table diets table:get initial-stock-table diets
-          ]
-
-          set no-sales-count 0
-          set label product-selection
+    if food-outlet-interaction? = true [
+      (ifelse no-sales-count <= no-sales-threshold [
+        ;do nothing - stay in business
         ]
-        let closing-day ticks
-        let business-period (closing-day - opening-day)
-        set business-duration-list fput business-period business-duration-list
-        show ("I close my business")
-        die ;supermarket goes out of business
 
-      ]
+        no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
+          hatch 1 [
+            move-to one-of patches with [not any? turtles-here]
+            set opening-day ticks
+
+            ;new supermarket is provided with the same attributes as the supermarket that went out of business, except for stock
+            ;provide new supermarket with another assortment and reset all stocks
+
+            ;food-outlet calculates how much of the total population he serves and determines how many products he will offer
+            let population-fraction (potential-costumers / count persons)
+            let nr-products "none"
+
+            ;based on quantiles of people in this radius compared to total population, food outlet will offer 1-4 different protein sources
+            (ifelse population-fraction <= 0.25 [
+              set nr-products 1
+              ]
+              population-fraction > 0.25 and population-fraction <= 0.5 [
+                set nr-products 2
+              ]
+              population-fraction > 0.25 and population-fraction <= 0.75 [
+                set nr-products 3
+              ]
+              population-fraction > 0.75 [
+                set nr-products 4
+              ]
+              ;if calculation of population-fraction did not go right
+              [print (list who "I cannot calculate how many products I will offer to my costumers")]
+            )
+
+            set product-selection map first rnd:weighted-n-of-list nr-products product-list [ [p] -> last p ] ;based on a weighted list, food outlets choose the products for their shelves
+
+            ;food outlets determine for each product in their product-selection, how much of this product is in stock
+
+            set initial-stock-table table:make
+            set sales-table table:make
+            set stock-table table:make
+
+            foreach diets-list [ diets ->
+              table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
+                round (potential-costumers / nr-products)
+              ] [
+                0
+              ]
+              table:put sales-table diets 0
+              table:put stock-table diets table:get initial-stock-table diets
+            ]
+
+            set no-sales-count 0
+            set label product-selection
+          ]
+          let closing-day ticks
+          let business-period (closing-day - opening-day)
+          set business-duration-list fput business-period business-duration-list
+          show ("I close my business")
+          die ;supermarket goes out of business
+
+        ]
+
 
       ;if the food outlet cannot decide if it sold enough products to stay in business
       [print (list who "I cannot decide if I sold enough to stay in business")]
     )
+  ]
   ]
 
 end
@@ -1453,6 +1439,7 @@ to update-stock
     ;if restocking is turned off, supermarkets will restock their assortment based on the initial stock set at the start of the run
 
     (ifelse restocking? = true [
+      ;show (list "this is my initial stocks table at t = t-1" initial-stock-table)
 
       foreach diets-list [ diets ->
 
@@ -1495,14 +1482,22 @@ to update-stock
         ]
 
         table:put initial-stock-table diets table:get stock-table diets
+
       ]
+              ;show (list "this is my stock table" stock-table)
+        ;show (list "this is my updated initial stocks table" initial-stock-table)
       ]
 
       restocking? = false [
+        ;show "I am restocking based on initial stocks"
 
         foreach diets-list [ diets ->
           table:put stock-table diets table:get initial-stock-table diets
         ]
+
+        show (list ticks "this is my stock table" stock-table)
+        show (list ticks "this is my initial stocks table" initial-stock-table)
+
       ]
 
       ;if something goes wrong
@@ -1981,7 +1976,7 @@ initial-nr-households
 initial-nr-households
 5
 5000
-95.0
+5.0
 10
 1
 NIL
@@ -2010,7 +2005,7 @@ INPUTBOX
 161
 556
 current-seed
-6.55406254E8
+3.68078429E8
 1
 0
 Number
@@ -2022,7 +2017,7 @@ SWITCH
 530
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -2133,7 +2128,7 @@ SWITCH
 126
 friendships?
 friendships?
-0
+1
 1
 -1000
 
@@ -2512,7 +2507,7 @@ SWITCH
 303
 more-sustainable-shops?
 more-sustainable-shops?
-0
+1
 1
 -1000
 
@@ -2538,7 +2533,7 @@ SWITCH
 302
 less-animal-proteins?
 less-animal-proteins?
-0
+1
 1
 -1000
 
@@ -2633,6 +2628,27 @@ Adjust diets at t = 365
 10
 0.0
 1
+
+PLOT
+191
+159
+417
+309
+sales
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -6459832 true "" "plot meat-sales"
+"pen-1" 1.0 0 -2064490 true "" "plot fish-sales"
+"pen-2" 1.0 0 -1184463 true "" "plot vegetarian-sales"
+"pen-3" 1.0 0 -13840069 true "" "plot vegan-sales"
 
 @#$#@#$#@
 ## WHAT IS IT?
