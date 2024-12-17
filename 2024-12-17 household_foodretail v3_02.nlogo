@@ -434,19 +434,33 @@ to go
   if ticks = 365 * 10 or error? = true [stop]
 
   closure-of-tick
+
+  ;interventions
   influence-diets
   more-sustainable-shops
   less-animal-proteins-shops
+
+  ;start having dinner
   select-group-and-cook
+
+  ;ask cooks
   select-meal
   go-to-supermarket
   cooking
+
+  ;ask persons
   set-meal-evaluation
   update-diet-preference
   evaluate-meal
+
+  ;ask food outlets
   check-sales
   update-stock
+
+  ;interface visuals
   visualization
+
+  ;reporters
   prepare-sales-reporter
   prepare-stock-reporter
   prepare-relative-change-meals-cooked-reporter
@@ -609,6 +623,7 @@ to more-sustainable-shops
           (ifelse current-stock != 0 [
 
             let assortment-change (p-more-sustainable * business-orientation * current-stock)
+            show assortment-change
             let new-stock current-stock + assortment-change
             table:put initial-stock-table food-item round new-stock
             table:put stock-table food-item table:get initial-stock-table food-item
@@ -898,6 +913,8 @@ to random-meal-selection
 end
 
 ;;; END OF MEAL SELECTION ;;;
+
+;;; START OF GETTING GROCERIES ;;;
 
 to go-to-supermarket
 
@@ -1993,7 +2010,7 @@ INPUTBOX
 161
 556
 current-seed
-1.327521729E9
+6.55406254E8
 1
 0
 Number
@@ -2245,7 +2262,7 @@ SWITCH
 230
 food-outlet-interaction?
 food-outlet-interaction?
-0
+1
 1
 -1000
 
@@ -2322,7 +2339,7 @@ SWITCH
 230
 restocking?
 restocking?
-0
+1
 1
 -1000
 
@@ -2461,7 +2478,7 @@ p-influencers
 p-influencers
 0
 1
-0.6
+0.59
 0.01
 1
 NIL
@@ -2508,7 +2525,7 @@ p-more-sustainable
 p-more-sustainable
 0
 1
-1.0
+0.1
 0.01
 1
 NIL
@@ -2534,7 +2551,7 @@ p-less-animal-proteins
 p-less-animal-proteins
 0
 1
-1.0
+0.11
 0.01
 1
 NIL
