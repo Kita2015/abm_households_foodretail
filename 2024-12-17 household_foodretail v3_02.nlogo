@@ -472,7 +472,7 @@ to go
   ;ask food outlets
   check-sales-tables
   check-sales-lists
-  update-stock
+  ;update-stock
   update-stocks-two
 
   ;interface visuals
@@ -965,12 +965,21 @@ end
 to select-supermarket
 
   ask persons with [is-cook? and meal-to-cook != "none" and bought? = false] [
+    ifelse supermarket-changes > 1 [
 
   ; This procedure sets supermarket != "none"
+
   set my-supermarket first sorted-food-outlets
+      show sorted-food-outlets
+      show my-supermarket
   set sorted-food-outlets but-first sorted-food-outlets
   ;show (list "My supermarket" my-supermarket)
   ]
+
+  ;if the cook is at his last supermarket
+  [draft-alternative-shopping-list]
+  ]
+
 
 end
 
@@ -1006,16 +1015,12 @@ end
 ; Handle cases when the product is unavailable
 to handle-unavailable-product [length-shopping-list neophobic?]
   if (neophobic? = false) [
-    ifelse (length-shopping-list > 1) [
-      get-alternative-groceries
-    ] [
       draft-alternative-shopping-list
-      select-supermarket
     ]
-  ]
+
   if (neophobic? = true) [
     set supermarket-changes supermarket-changes - 1
-    ifelse (supermarket-changes > 0) [
+    ifelse (supermarket-changes > 1) [
       select-supermarket
     ] [
       handle-exhausted-supermarkets length-shopping-list
@@ -1025,12 +1030,9 @@ end
 
 ; Handle cases where all supermarkets have been tried
 to handle-exhausted-supermarkets [length-shopping-list]
-  ifelse (length-shopping-list > 1) [
-    get-alternative-groceries
-  ] [
+  ;if a cook is stuck in his last supermarket, he will buy an item there.
     draft-alternative-shopping-list
-    select-supermarket
-  ]
+
 end
 
 ; Handle cases when the product is available
@@ -1080,16 +1082,11 @@ to draft-alternative-shopping-list ;this procedure should take place in the supe
 
 end
 
-to get-alternative-groceries
+to get-alternative-groceries ;select second item from the shopping list
 
   ;show "I am getting alternative groceries"
   set shopping-list remove-item 0 shopping-list
   set meal-to-cook item 0 shopping-list
-
-  set sorted-food-outlets sort-on [distance myself] food-outlets
-  set my-supermarket first sorted-food-outlets
-
-  set supermarket-changes length sorted-food-outlets ;to prevent the cook from not being able to get his requested product in the first supermarket of his choice
 
   get-groceries
 
@@ -1438,7 +1435,7 @@ to check-sales-lists
 
 
     let restocking-time ticks mod restocking-frequency
-    show (list "restocking-time" restocking-time)
+    ;show (list "restocking-time" restocking-time)
 
     if restocking-time != 0 or ticks = 0 [
 
@@ -1447,10 +1444,10 @@ to check-sales-lists
         let sales-product table:get sales-table diets
 
         ; Add sales-product to the appropriate list based on the diet type
-        if diets = "meat" [ set meat-list lput sales-product meat-list
-          show (list "meat-list" meat-list) ]
-        if diets = "fish" [ set fish-list lput sales-product fish-list
-          show (list "fish-list" fish-list) ]
+        if diets = "meat" [ set meat-list lput sales-product meat-list]
+          ;show (list "meat-list" meat-list) ]
+          if diets = "fish" [ set fish-list lput sales-product fish-list]
+          ;show (list "fish-list" fish-list) ]
         if diets = "vegetarian" [ set vegetarian-list lput sales-product vegetarian-list ]
         if diets = "vegan" [ set vegan-list lput sales-product vegan-list ]
 
@@ -1472,8 +1469,8 @@ to check-sales-lists
           set meat-list lput sales-product meat-list
           let length-lists (length meat-list)
           set meat-sublist sublist meat-list (length-lists - rf) (length-lists)
-          show (list "meat-list" meat-list)
-          show (list "meat sub-list" meat-sublist)
+          ;show (list "meat-list" meat-list)
+          ;show (list "meat sub-list" meat-sublist)
         ]
         if diets = "fish" [
           set fish-list lput sales-product fish-list
@@ -1614,14 +1611,76 @@ to update-stocks-two
      let restocking-time ticks mod restocking-frequency
      let length-lists (length meat-list)
 
-    if restocking-time = 0 and length-lists >= restocking-frequency[
+    if restocking-time = 0 and ticks != 0 [
 
-    let mean-meat-sales mean meat-sublist
-    show (list "mean sales of meat" mean-meat-sales)
+
+     ;map diets to their respective sublists
+      let diet-sublists-map table:make
+      show (list "meat-sublist" meat-sublist)
+      table:put diet-sublists-map "meat" (mean meat-sublist)
+      table:put diet-sublists-map "fish" (mean fish-sublist)
+      table:put diet-sublists-map "vegetarian" (mean vegetarian-sublist)
+      table:put diet-sublists-map "vegan" (mean vegan-sublist)
+      show diet-sublists-map
+
+
+
+    foreach diets-list [ diets ->
+        let initial-stock-diet (table:get initial-stock-table diets)
+
+        ;get the sublist for the current diet
+        let sales-diet table:get diet-sublists-map diets
+
+        ifelse restocking? = true [
+
+        if (initial-stock-diet) != 0 [
+
+          ;calculate how the actual sales of each product relates to the margins set for changing the stock
+
+          let nr-products length product-selection ;number of products a food outlet offers
+          let threshold-sales-increase round ( ( upper-margin * initial-stock-diet) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
+          let threshold-sales-decrease round ( ( lower-margin * initial-stock-diet) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
+          let percentage-sold ( (sales-diet / initial-stock-diet) * 100 ) ;calculate what percentage of the stock is sold
+          let lower-margin-sales abs (threshold-sales-decrease - sales-diet) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
+          let upper-margin-sales abs (threshold-sales-increase - sales-diet) ;
+          let shop-size-factor (nr-products / 10) ;what does this do?
+
+          ifelse percentage-sold < threshold-sales-decrease [ ;if sales was below the lower margin sales threshold, reduce the stock
+            table:put stock-table diets round ( (initial-stock-diet - (lower-margin-sales * shop-size-factor)) )
+            ;show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
+            ] [
+            ifelse percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, increase the stock
+              table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
+              ;show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
+            ] [
+
+           ; percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [ ;if sales was between the margins, reset it with the average
+              table:put stock-table diets table:get initial-stock-table diets
+              ;show (word "restocking " initial-stock-diet " of " diets)
+            ]
+            ]
+          ]
+
+
+
+        ;update the initial stock table with the current stock table for next iteration
+        table:put initial-stock-table diets table:get stock-table diets
+
+      ] [
+
+        ;restocking? = false
+
+
+                 table:put stock-table diets table:get initial-stock-table diets
+
+        ]
+      ]
     ]
-
-
   ]
+
+
+
+
 
 
 end
