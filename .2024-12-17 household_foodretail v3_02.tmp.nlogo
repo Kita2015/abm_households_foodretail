@@ -1466,7 +1466,7 @@ to check-sales-lists
       foreach diets-list [ diets ->
         let sales-product table:get sales-table diets
 
-        let rf (restocking-frequency + 1) ;correction of +1 to ensure the first tick of the run is also included. further in the run, there is an overlap of 1 sold product between each mean sales
+        let rf (restocking-frequency + 1) ;correction of +1 to ensure the first tick of the run is also included. further in the run, there is an overlap of 1 b
 
         if diets = "meat" [
           set meat-list lput sales-product meat-list
