@@ -77,6 +77,7 @@ persons-own [
   at-home?
   my-supermarket
   sorted-food-outlets
+  basket-full?
   bought?
   supermarket-changes
 
@@ -270,6 +271,7 @@ to setup-persons
     set my-cook "nobody"
     set my-dinner-guests "nobody"
     set my-supermarket "none"
+    set basket-full? false
     set bought? false
   ]
 
@@ -944,16 +946,20 @@ end
 
 to start-groceries
 
-  ask persons with [is-cook? = true and meal-to-cook != "none" and bought? = false] [
-
+  ask persons with [is-cook? = true and meal-to-cook != "none" and basket-full? = false and bought? = false] [
+     show "I am going to select my supermarket"
     ifelse food-outlet-interaction? = true [
 
-      if my-supermarket = "none" [
-        select-supermarket
-      ]
-     get-groceries
 
-    ] [
+      select-supermarket
+      if my-supermarket != "none" [
+      get-groceries
+      ]
+    ]
+
+
+    ;if food-outlet-interaction? = false
+    [
       set bought? true
     ]
 
@@ -964,32 +970,32 @@ end
 
 to select-supermarket
 
-  ask persons with [is-cook? and meal-to-cook != "none" and bought? = false] [
+
+
+  ask persons with [is-cook? and meal-to-cook != "none" and basket-full? = false and bought? = false] [
+
     ifelse supermarket-changes > 1 [
 
-  ; This procedure sets supermarket != "none"
+      ; This procedure sets supermarket != "none"
 
-  set my-supermarket first sorted-food-outlets
-      show sorted-food-outlets
-      show my-supermarket
-  set sorted-food-outlets but-first sorted-food-outlets
-  ;show (list "My supermarket" my-supermarket)
-  ]
+      set my-supermarket first sorted-food-outlets
+      set supermarket-changes supermarket-changes - 1
+      set sorted-food-outlets but-first sorted-food-outlets
+      ;show (list "My supermarket" my-supermarket)
+    ]
 
   ;if the cook is at his last supermarket
-  [draft-alternative-shopping-list]
+  [get-alternative-groceries]
   ]
-
 
 end
 
 to get-groceries
 
-  ask persons with [is-cook? = true and my-supermarket != "none" and bought? = false] [
+  ask persons with [is-cook? = true and my-supermarket != "none" and basket-full? = false and bought? = false] [
   ; All the cooks go get ingredients at the supermarket
 
   ; Variables
-  let length-shopping-list length shopping-list
   let requested-product meal-to-cook
   let available-products "none"
   let available? false
@@ -1002,41 +1008,34 @@ to get-groceries
   set available? member? meal-to-cook available-products
 
   ; Decision tree based on availability and neophobia
-  if not available? [ handle-unavailable-product length-shopping-list neophobic? ]
-  if available?     [ handle-available-product requested-product length-shopping-list neophobic? ]
+  if not available? [ handle-unavailable-product neophobic? ]
+  if available?     [ handle-available-product requested-product neophobic? ]
 
   ; Final step: check-out groceries
-  if bought? = false [
+  if basket-full? = true and bought? = false [
   check-out-groceries
     ]
   ]
 end
 
 ; Handle cases when the product is unavailable
-to handle-unavailable-product [length-shopping-list neophobic?]
-  if (neophobic? = false) [
-      draft-alternative-shopping-list
-    ]
-
-  if (neophobic? = true) [
-    set supermarket-changes supermarket-changes - 1
-    ifelse (supermarket-changes > 1) [
-      select-supermarket
-    ] [
-      handle-exhausted-supermarkets length-shopping-list
-    ]
+to handle-unavailable-product [neophobic?]
+  ifelse neophobic? = false [
+    get-alternative-groceries
   ]
+  ;ifelse neophobic? = true
+  [select-supermarket]
 end
 
 ; Handle cases where all supermarkets have been tried
-to handle-exhausted-supermarkets [length-shopping-list]
+to handle-exhausted-supermarkets []
   ;if a cook is stuck in his last supermarket, he will buy an item there.
-    draft-alternative-shopping-list
+    get-alternative-groceries
 
 end
 
 ; Handle cases when the product is available
-to handle-available-product [requested-product length-shopping-list neophobic?]
+to handle-available-product [requested-product neophobic?]
   let nr-dinner-guests count my-dinner-guests
   let stock-sufficient? false
 
@@ -1045,53 +1044,50 @@ to handle-available-product [requested-product length-shopping-list neophobic?]
     let current-stock (table:get stock-table requested-product)
     set stock-sufficient? (current-stock >= nr-dinner-guests)
   ]
+  set basket-full? true
 
   ; Decide actions based on stock availability and neophobia
   if not stock-sufficient? [
-    handle-insufficient-stock length-shopping-list neophobic?
+    handle-insufficient-stock neophobic?
   ]
 end
 
 ; Handle insufficient stock scenarios
-to handle-insufficient-stock [length-shopping-list neophobic?]
+to handle-insufficient-stock [neophobic?]
   ifelse (not neophobic?) [
-    if (length-shopping-list > 1) [ get-alternative-groceries ]
+    get-alternative-groceries
   ] [
-    ifelse (length-shopping-list > 1) [
+    ifelse supermarket-changes > 1 [
       select-supermarket
     ] [
-      draft-alternative-shopping-list
+      get-alternative-groceries
     ]
   ]
 end
 
 
-to draft-alternative-shopping-list ;this procedure should take place in the supermarket where the cook is at that moment and include the ingredients that the supermarket offers
+to get-alternative-groceries ;this procedure should take place in the supermarket where the cook is at that moment and include the ingredients that the supermarket offers
 
   set shopping-list []
   let alternative-shopping-list []
 
   ask my-supermarket [
     let new-meal one-of product-selection
-    set alternative-shopping-list (list new-meal)
+    set alternative-shopping-list first (list new-meal)
   ]
 
   set shopping-list alternative-shopping-list
+  set meal-to-cook alternative-shopping-list
+
+  let requested-product meal-to-cook
+  let neophobic? (neophobia > random-float 1)
+
   ;show  (list "I set my shopping list to the product selection of my supermarket" shopping-list)
-  get-groceries
-
-end
-
-to get-alternative-groceries ;select second item from the shopping list
-
-  ;show "I am getting alternative groceries"
-  set shopping-list remove-item 0 shopping-list
-  set meal-to-cook item 0 shopping-list
-
-  get-groceries
+  if meal-to-cook != "none" [handle-available-product requested-product neophobic?]
 
 
 end
+
 
 to check-out-groceries
 
