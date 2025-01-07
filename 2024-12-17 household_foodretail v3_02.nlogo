@@ -947,19 +947,24 @@ end
 to start-groceries
 
   ask persons with [is-cook? = true and meal-to-cook != "none" and basket-full? = false and bought? = false] [
-     show "I am going to select my supermarket"
+     show "I am going to the supermarket"
     ifelse food-outlet-interaction? = true [
 
 
       select-supermarket
-      if my-supermarket != "none" [
+      ifelse my-supermarket != "none" [
+        show (word "start-groceries I have just selected a supermarket and am getting groceries:" my-supermarket)
       get-groceries
+      ]
+      [
+        show "No supermarket selected, skipping groceries"
       ]
     ]
 
 
     ;if food-outlet-interaction? = false
     [
+      show "food outlet interaction is false; skipping groceries"
       set bought? true
     ]
 
@@ -981,11 +986,12 @@ to select-supermarket
       set my-supermarket first sorted-food-outlets
       set supermarket-changes supermarket-changes - 1
       set sorted-food-outlets but-first sorted-food-outlets
-      ;show (list "My supermarket" my-supermarket)
+      show (list "Select-supermarket: My new supermarket is" my-supermarket)
     ]
 
   ;if the cook is at his last supermarket
-  [get-alternative-groceries]
+  [show "no more supermarkets to try; looking for alternative groceries"
+      get-alternative-groceries]
   ]
 
 end
@@ -1008,11 +1014,16 @@ to get-groceries
   set available? member? meal-to-cook available-products
 
   ; Decision tree based on availability and neophobia
-  if not available? [ handle-unavailable-product neophobic? ]
-  if available?     [ handle-available-product requested-product neophobic? ]
+  if not available? [ show (word "get groceries My product is NOT available: " meal-to-cook my-supermarket)
+      handle-unavailable-product neophobic? ]
+  if available?     [ show (word "get groceries My product is available: " meal-to-cook my-supermarket)
+      handle-available-product requested-product neophobic? ]
+
+
 
   ; Final step: check-out groceries
   if basket-full? = true and bought? = false [
+      show "my basket is full and I am checking out"
   check-out-groceries
     ]
   ]
@@ -1021,45 +1032,52 @@ end
 ; Handle cases when the product is unavailable
 to handle-unavailable-product [neophobic?]
   ifelse neophobic? = false [
+    show "handle-unavailable product-  I am NOT neophobic and will get alternative groceries"
     get-alternative-groceries
-  ]
+  ] [
   ;ifelse neophobic? = true
-  [select-supermarket]
+  show "handle-unavailable product - I am neophobic and will chose another supermarket"
+  select-supermarket]
 end
 
-; Handle cases where all supermarkets have been tried
-to handle-exhausted-supermarkets []
-  ;if a cook is stuck in his last supermarket, he will buy an item there.
-    get-alternative-groceries
-
-end
 
 ; Handle cases when the product is available
 to handle-available-product [requested-product neophobic?]
   let nr-dinner-guests count my-dinner-guests
-  let stock-sufficient? false
+  let stock-sufficient? "none"
 
   ; Check stock levels for the requested product
-  ask my-supermarket [
-    let current-stock (table:get stock-table requested-product)
-    set stock-sufficient? (current-stock >= nr-dinner-guests)
-  ]
-  set basket-full? true
+          ask my-supermarket [
+          let current-stock (table:get stock-table requested-product)
+          ifelse (current-stock >= nr-dinner-guests) [
+            set stock-sufficient? true
+          ] [
+            set stock-sufficient? false
+          ]
+        ]
 
-  ; Decide actions based on stock availability and neophobia
-  if not stock-sufficient? [
+
+   ; Decide actions based on stock availability and neophobia
+  ifelse stock-sufficient? = false [
+    show (word "handle-available-product My product is NOT sufficiently available: "meal-to-cook my-supermarket)
     handle-insufficient-stock neophobic?
-  ]
+  ] [
+  ;if stock is sufficient
+  show (word "handle-available-product My product is sufficiently available: " meal-to-cook my-supermarket)
+  set basket-full? true]
 end
 
 ; Handle insufficient stock scenarios
 to handle-insufficient-stock [neophobic?]
   ifelse (not neophobic?) [
+    show "I am NOT neophobic and will get alternative groceries"
     get-alternative-groceries
   ] [
     ifelse supermarket-changes > 1 [
+      show "I am neophobic and I can still change supermarket, so I will change supermarket"
       select-supermarket
     ] [
+      show "I am neophobic but cannot change supermarket, so I will get alternative groceries"
       get-alternative-groceries
     ]
   ]
@@ -1078,12 +1096,15 @@ to get-alternative-groceries ;this procedure should take place in the supermarke
 
   set shopping-list alternative-shopping-list
   set meal-to-cook alternative-shopping-list
+  show (word "get alternative groceries - I set my shopping list to the product selection of my supermarket: " alternative-shopping-list my-supermarket)
 
   let requested-product meal-to-cook
   let neophobic? (neophobia > random-float 1)
 
-  ;show  (list "I set my shopping list to the product selection of my supermarket" shopping-list)
-  if meal-to-cook != "none" [handle-available-product requested-product neophobic?]
+  ifelse meal-to-cook != "none" [
+    show (word "I have drafted a new shopping list  and I will check if it is sufficiently available" alternative-shopping-list my-supermarket)
+      handle-available-product requested-product neophobic?]
+  [show "I did not draft a new sshopping list"]
 
 
 end
@@ -1128,7 +1149,7 @@ to check-out-groceries
 
     ;show (list "I just bought groceries - before check-out" bought?)
     set bought? true
-    ;show (list "I just bought groceries" bought?)
+    show (list "I just bought groceries" bought? nr-dinner-guests meal-to-cook)
   ]
 
 end
@@ -2719,7 +2740,7 @@ p-less-animal-proteins
 p-less-animal-proteins
 0
 1
-0.11
+0.12
 0.01
 1
 NIL
