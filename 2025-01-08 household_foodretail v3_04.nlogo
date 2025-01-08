@@ -457,8 +457,7 @@ to go
 
   ;ask food outlets
   check-sales-tables
-  check-sales-lists
-  update-stocks-two
+  check-sales-restocking
 
   ;interface visuals
   visualization
@@ -1321,11 +1320,11 @@ to check-sales-tables ;food-outlet procedure
 
     ;if the supermarket has had no sales for several weeks, it will throw an error
     if cooks-visit-supermarket? = true [
-      (ifelse no-sales-count <= no-sales-threshold [
+      (ifelse no-sales-count <= 180 [ ;hard-coded as 6 months of no sales
         ;do nothing - stay in business
         ]
 
-        no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
+        no-sales-count > 180 [ ;hard-coded as 6 months of no sales
 
           show ("I need to close my business")
           set error? true
@@ -1333,53 +1332,30 @@ to check-sales-tables ;food-outlet procedure
         ]
 
 
-      ;if the food outlet cannot decide if it sold enough products to stay in business
-      [print (list who "I cannot decide if I sold enough to stay in business")]
-    )
-  ]
+        ;if the food outlet cannot decide if it sold enough products to stay in business
+        [print (list who "I cannot decide if I sold enough to stay in business")]
+      )
+    ]
   ]
 
 end
 
-to check-sales-lists
+to check-sales-restocking
 
   ask food-outlets [
 
 
     let restocking-time ticks mod restocking-frequency
-    ;show (list "restocking-time" restocking-time)
-
-    ;check if it is restocking day
 
 
 
-    if restocking-time != 0 or ticks = 0 [
+     ;add sales to the list, and create a sublist
+       if restocking-time = 0 and ticks != 0 [ ;it is restocking day!
 
-      ;add sales to the list
       foreach diets-list [ diets ->
         let sales-product table:get sales-table diets
 
-        ; Add sales-product to the appropriate list based on the diet type
-        if diets = "meat" [ set meat-list lput sales-product meat-list]
-          ;show (list "meat-list" meat-list) ]
-          if diets = "fish" [ set fish-list lput sales-product fish-list]
-          ;show (list "fish-list" fish-list) ]
-        if diets = "vegetarian" [ set vegetarian-list lput sales-product vegetarian-list ]
-        if diets = "vegan" [ set vegan-list lput sales-product vegan-list ]
-
-
-
-      ]
-    ]
-
-
-    if restocking-time = 0 and ticks != 0 [
-
-      ;add sales to the list, and create a sublist
-      foreach diets-list [ diets ->
-        let sales-product table:get sales-table diets
-
-        let rf (restocking-frequency + 1) ;correction of +1 to ensure the first tick of the run is also included. further in the run, there is an overlap of 1 sold product between each mean sales
+        let rf (restocking-frequency + 1) ;correction of +1 to ensure the first tick of the run is also included. further in the run, there is an overlap of 1 sold product between each mean sa
 
         if diets = "meat" [
           set meat-list lput sales-product meat-list
@@ -1403,43 +1379,23 @@ to check-sales-lists
           let length-lists (length vegan-list)
           set vegan-sublist sublist vegan-list (length-lists - restocking-frequency)  (length-lists)
         ]
-
-
       ]
-
-
     ]
-  ]
+
+ ;calculate average sales of past days
+    if restocking-time = 0 and ticks != 0 [ ;it is restocking day!
 
 
-end
-
-
-to update-stocks-two
-
-  ask food-outlets [
-
-    ;calculate the average sales of the past day(s)
-     let restocking-time ticks mod restocking-frequency
-     let length-lists (length meat-list)
-
-    if restocking-time = 0 and ticks != 0 [
-
-
-     ;map diets to their respective sublists
       let diet-sublists-map table:make
       show (list "meat-sublist" meat-sublist)
       table:put diet-sublists-map "meat" (mean meat-sublist)
       table:put diet-sublists-map "fish" (mean fish-sublist)
       table:put diet-sublists-map "vegetarian" (mean vegetarian-sublist)
       table:put diet-sublists-map "vegan" (mean vegan-sublist)
-      show diet-sublists-map
 
-
-
-    foreach diets-list [ diets ->
+      ;let's restock
+      foreach diets-list [ diets ->
         let initial-stock-diet (table:get initial-stock-table diets)
-
         ;get the sublist for the current diet
         let sales-diet table:get diet-sublists-map diets
 
@@ -1466,33 +1422,47 @@ to update-stocks-two
               ;show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
             ] [
 
-           ; percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [ ;if sales was between the margins, reset it with the average
-              table:put stock-table diets table:get initial-stock-table diets
-              ;show (word "restocking " initial-stock-diet " of " diets)
-            ]
+                ; percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [ ;if sales was between the margins, reset it with the average
+                table:put stock-table diets table:get initial-stock-table diets
+                ;show (word "restocking " initial-stock-diet " of " diets)
+              ]
             ]
           ]
 
 
 
-        ;update the initial stock table with the current stock table for next iteration
-        table:put initial-stock-table diets table:get stock-table diets
+          ;update the initial stock table with the current stock table for next iteration
+          table:put initial-stock-table diets table:get stock-table diets
 
-      ] [
+        ] [
+          ;not stocking day?
+          table:put stock-table diets table:get initial-stock-table diets
+        ]
 
-        ;restocking? = false
+        ;record sales
+        if restocking-time != 0 or ticks = 0 [ ;it is not restocking day
 
 
-                 table:put stock-table diets table:get initial-stock-table diets
+            let sales-product table:get sales-table diets
+
+            ; Add sales-product to the appropriate list based on the diet type
+            if diets = "meat" [ set meat-list lput sales-product meat-list]
+            ;show (list "meat-list" meat-list) ]
+            if diets = "fish" [ set fish-list lput sales-product fish-list]
+            ;show (list "fish-list" fish-list) ]
+            if diets = "vegetarian" [ set vegetarian-list lput sales-product vegetarian-list ]
+            if diets = "vegan" [ set vegan-list lput sales-product vegan-list ]
+
+
+
 
         ]
+
+
+
       ]
     ]
   ]
-
-
-
-
 
 
 end
@@ -2260,21 +2230,6 @@ upper-margin
 NIL
 HORIZONTAL
 
-SLIDER
-1737
-87
-1909
-120
-no-sales-threshold
-no-sales-threshold
-0
-365
-180.0
-10
-1
-NIL
-HORIZONTAL
-
 SWITCH
 174
 287
@@ -2607,7 +2562,7 @@ restocking-frequency
 restocking-frequency
 1
 30
-2.0
+4.0
 1
 1
 NIL
