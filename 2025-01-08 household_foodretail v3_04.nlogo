@@ -17,7 +17,7 @@ directed-link-breed [household-memberships household-membership]
 
 
 globals [
-  diet-list ;weighted list of diets
+  weighted-diets-list ;weighted list of diets
   diets-list ;list with only diets
   product-list ; weighted list of products
   income-levels
@@ -27,6 +27,7 @@ globals [
   cooked-vegetarian
   cooked-vegan
   report-sales-table
+  report-potatoes-table
   report-stock-table
   report-saved-stock-table
   report-delta-stock-table
@@ -51,7 +52,7 @@ globals [
 
 
 persons-own [
-  ;age
+  meal-enjoyment-table
   diet
   is-cook?
   cooking-skills
@@ -64,11 +65,9 @@ persons-own [
   my-last-dinner
   last-meals-quality
   last-meal-enjoyment
-  meal-enjoyments-table
   my-cook
   my-dinner-guests
   network-diet-diversity
-  ;egoism
   status
   neophobia
   individualism
@@ -144,7 +143,7 @@ end
 
 to setup-globals
 
-  set diet-list (list (list "meat" 0.94 ) (list  "fish" 0.02 ) (list "vegetarian" 0.02 ) (list "vegan" 0.02 )) ;hard-coded values of dietary identities in the Netherlands
+  set weighted-diets-list (list (list "meat" 0.94 ) (list  "fish" 0.02 ) (list "vegetarian" 0.02 ) (list "vegan" 0.02 )) ;hard-coded values of dietary identities in the Netherlands
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
   set income-levels-list (list "low" "middle" "high")
@@ -155,6 +154,7 @@ to setup-globals
   set cooked-vegetarian 0
   set cooked-vegan 0
   set report-sales-table table:make
+  set report-potatoes-table table:make
   set report-stock-table table:make
   set report-median-sales-table table:make
   set report-median-stock-table table:make
@@ -186,6 +186,8 @@ to setup-globals
     table:put report-saved-stock-table diets 0
     table:put report-delta-stock-table diets 0
   ]
+
+      table:put report-potatoes-table "potatoes" 0
 
   table:put diets-affordability-table "meat" 10
   table:put diets-affordability-table "fish" 2
@@ -242,7 +244,30 @@ to setup-persons
     ;set age random-normal 41 25 ; mean and sd are chosen based on Dutch demographic data
     set shape "person"
     set color pink
-    set diet first rnd:weighted-one-of-list diet-list [ [p] -> last p ]
+    set meal-enjoyment-table table:make
+    set diet first rnd:weighted-one-of-list weighted-diets-list [ [p] -> last p ]
+
+
+
+    foreach diets-list [ diets ->
+      table:put meal-enjoyment-table diets 0
+    ]
+
+    let initial-diet-enjoyment random-float 1
+    table:put meal-enjoyment-table diet initial-diet-enjoyment
+
+    let other-enjoyments []
+    set other-enjoyments remove diet diets-list
+    ;show (word "My diet: " diet " and my other enjoyments " other-enjoyments)
+
+
+    foreach other-enjoyments [ diets ->
+      let enjoyment random-float initial-diet-enjoyment
+      table:put meal-enjoyment-table diets enjoyment
+    ]
+      ;show meal-enjoyment-table
+
+
     set is-cook? false
     set shopping-list []
     set meal-to-cook "none"
@@ -253,11 +278,9 @@ to setup-persons
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
-    set meal-enjoyments-table table:make
 
-    foreach diets-list [ diets ->
-      table:put meal-enjoyments-table diets 0
-    ]
+
+
 
     set network-diet-diversity 0
     set cooks-cooking-skills 0
@@ -342,6 +365,7 @@ to setup-food-outlets
 
     set potatoes-table table:make
     table:put potatoes-table "potatoes" 0
+    show potatoes-table
 
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
@@ -922,14 +946,6 @@ end
 
 to to-do-groceries
 
-  ;select supermarket
-  ;get groceries
-  ;;action-product-available
-  ;;action-product-unavailable
-  ;;action-insufficient-stock
-  ;get-alternative-groceries
-  ;check-out-groceries
-
   ask persons with [is-cook? = true] [
 
 
@@ -1108,8 +1124,6 @@ to get-alternative-groceries ;this procedure takes place in the supermarket wher
   ]
 
 
-
-
 end
 
 
@@ -1162,7 +1176,7 @@ to check-out-groceries
       ;only recording sales because we assume that the supermarket has infinite stock of potatoes
       let current-sales-potatoes (table:get potatoes-table requested-product)
       table:put potatoes-table requested-product (current-sales-potatoes + nr-dinner-guests)
-      show potatoes-table
+      ;show potatoes-table
     ]
     set bought? true
     show (word "check-out-groceries I just bought groceries: I bought = " bought? " Nr of guests: " nr-dinner-guests " What I'm cooking: " meal-to-cook)
@@ -1220,13 +1234,13 @@ to set-meal-evaluation
           set last-meals-quality my-meals-quality
           ;print (list who last-meals-quality is-cook?)
 
-          (ifelse last-meals-quality < 0.55 [
+          (ifelse last-meals-quality < 0.55 [ ;hard-coded value for a sufficient mark in The Netherlands, 5.5
             set last-meal-enjoyment "negative"
           ] last-meals-quality >= 0.55 [
             set last-meal-enjoyment "positive"
           ] [
             ;if no meal evaluation took place
-            print "I did not evaluate the meal I just had!"
+            show "I did not evaluate the meal I just had!"
           ])
         ]
       ]
@@ -1236,51 +1250,51 @@ to set-meal-evaluation
 end
 
 to update-diet-preference
-  ask households [
-    ifelse empty-house? = true [
-      ;do not run this procedure
-    ]
 
-    ;empty-house = false
-    ;run this procedure
-    [
+      ask persons [
 
-      ask members with [at-home? = true][
-        ;in this version people consider changing their diet preference after liking a meal several times, depending on their uncertainty avoidance
-        (ifelse last-meal-enjoyment = "positive" [
+        ifelse last-meal-enjoyment = "positive" and my-last-dinner != "potatoes" [
 
-          ;update table with meal enjoyments for each type of diet based on uncertainty avoidance
-          let current-meal-enjoyment table:get meal-enjoyments-table my-last-dinner
-          let update-meal-enjoyment neophobia > random-float 1 ;this evaluates to FALSE (I am too neophobic to consider liking new foods) to TRUE (I am neophilic enough to consider liking new foods)
-
-          (ifelse update-meal-enjoyment = true [
-            table:put meal-enjoyments-table my-last-dinner (current-meal-enjoyment + 1)
-            ]
-            update-meal-enjoyment = false [
-              ;not updating meal-enjoyments
-            ]
-            ;if something goes wrong
-            [show "I was not able to decide if I will update my meal-enjoyments"]
-          )
-
-          ;check how often the person has liked the last meal he had and update accordingly (assuming it takes 8-9 times to like a new food, based on literature)
-          let nr-meal-enjoyments table:get meal-enjoyments-table my-last-dinner
-          if nr-meal-enjoyments >= 8 [
-            set diet my-last-dinner
-            table:put meal-enjoyments-table my-last-dinner 0
-          ]
-          ]
-          last-meal-enjoyment = "negative" [
-
-            ;do nothing - I did not like the meal that my-cook served me and I will not update my preference
+          ;update table with meal enjoyments for each type of diet based on neophobia
+          let current-meal-enjoyment table:get meal-enjoyment-table my-last-dinner
+          let new-meal-enjoyment current-meal-enjoyment + ( ( last-meals-quality * (1 - neophobia) ) / 100 ) ;add a multiplication of last meal's quality and the neophobia, here a low neophobia leads to a larger increment in meal enjoyment
+      if new-meal-enjoyment > 1 [set new-meal-enjoyment 1]
+      table:put meal-enjoyment-table my-last-dinner new-meal-enjoyment
+          ] [
+      ifelse last-meal-enjoyment = "negative" and my-last-dinner != "potatoes" [
+           ;update table with meal enjoyments for each type of diet based on neophobia
+          let current-meal-enjoyment table:get meal-enjoyment-table my-last-dinner
+          let new-meal-enjoyment current-meal-enjoyment - ( ( last-meals-quality * (1 - neophobia) ) / 100 ) ;add a multiplication of last meal's quality and the neophobia, here a low neophobia leads to a larger increment in meal enjoyment
+      if new-meal-enjoyment <= 0 [set new-meal-enjoyment 0.001]
+      table:put meal-enjoyment-table my-last-dinner new-meal-enjoyment
           ]
 
-          ;if something goes wrong
-          [show "I do not know if I should change my dietary preference"]
-        )
+    ;if my-last-dinner = "potatoes"
+    [show "We poor people had to eat potatoes, grr"]
+
       ]
+
+    ;update dietary preference, if necessary
+
+    let max-diet "none"
+    let max-value 0
+
+    foreach diets-list [ diets ->
+    let value table:get meal-enjoyment-table diets
+      show (word value " and " max-value)
+
+    if value > max-value [
+      set max-value value
+      set max-diet diets
     ]
   ]
+
+    show (word "My selected diet: " max-diet)
+
+    set diet max-diet
+
+  ]
+
 
 end
 
@@ -1370,36 +1384,34 @@ to check-sales-tables ;food-outlet procedure
 
   ;determine sales
   ask food-outlets [
+  ifelse supply-demand = "static-restocking" or supply-demand = "dynamic-restocking" [
 
-    ;print (list who sales)
 
-    ;first check total sales -> if the supermarket did not sell enough products, it will go out of business and hatch a new supermarket with random stock
+      let total-sales 0
 
-    let total-sales 0
-
-    foreach diets-list [ diets ->
-      let sales-product table:get sales-table diets
-      ;show (list diets sales-product)
-      set total-sales total-sales + sales-product
-    ]
-
-    (ifelse total-sales = 0 [
-      set no-sales-count no-sales-count + 1
+      foreach diets-list [ diets ->
+        let sales-product table:get sales-table diets
+        ;show (list diets sales-product)
+        set total-sales total-sales + sales-product
       ]
 
-      total-sales != 0 [
-        set no-sales-count 0
-      ]
+      (ifelse total-sales = 0 [
+        set no-sales-count no-sales-count + 1
+        ]
 
-      ;if sales were not counted
-      [show "I could not determine my total sales"]
-    )
+        total-sales != 0 [
+          set no-sales-count 0
+        ]
+
+        ;if sales were not counted
+        [show "I could not determine my total sales"]
+      )
 
 
-    ;if the supermarket has had no sales for several weeks, it will throw an error
-    if supply-demand = "static-restocking" or supply-demand = "dynamic-restocking" [
+      ;if the supermarket has had no sales for several weeks, it will throw an error
+
       (ifelse no-sales-count <= 180 [ ;hard-coded as 6 months of no sales
-        ;do nothing - stay in business
+                                      ;do nothing - stay in business
         ]
 
         no-sales-count > 180 [ ;hard-coded as 6 months of no sales
@@ -1414,6 +1426,12 @@ to check-sales-tables ;food-outlet procedure
         [print (list who "I cannot decide if I sold enough to stay in business")]
       )
     ]
+
+
+    ;if supply-demand = "infinite stock" food outlets do not need to check their sales
+    [
+      show "People eat from heaven, no need to check my sales"
+    ]
   ]
 
 end
@@ -1422,128 +1440,90 @@ to check-sales-restocking
 
   ask food-outlets [
 
+    show (word "Supply-demand: " supply-demand " | Stock-table at the start: " stock-table)
 
-    let restocking-time ticks mod restocking-frequency
-
-
-
-     ;add sales to the list, and create a sublist
-       if restocking-time = 0 and ticks != 0 [ ;it is restocking day!
-
-      foreach diets-list [ diets ->
-        let sales-product table:get sales-table diets
-
-        let rf (restocking-frequency + 1) ;correction of +1 to ensure the first tick of the run is also included. further in the run, there is an overlap of 1 sold product between each mean sa
-
-        if diets = "meat" [
-          set meat-list lput sales-product meat-list
-          let length-lists (length meat-list)
-          set meat-sublist sublist meat-list (length-lists - rf) (length-lists)
-          ;show (list "meat-list" meat-list)
-          ;show (list "meat sub-list" meat-sublist)
-        ]
-        if diets = "fish" [
-          set fish-list lput sales-product fish-list
-          let length-lists (length fish-list)
-          set fish-sublist sublist fish-list (length-lists - restocking-frequency)  (length-lists)
-        ]
-        if diets = "vegetarian" [
-          set vegetarian-list lput sales-product vegetarian-list
-          let length-lists (length vegetarian-list)
-          set vegetarian-sublist sublist vegetarian-list (length-lists - restocking-frequency)  (length-lists)
-        ]
-        if diets = "vegan" [
-          set vegan-list lput sales-product vegan-list
-          let length-lists (length vegan-list)
-          set vegan-sublist sublist vegan-list (length-lists - restocking-frequency)  (length-lists)
-        ]
-      ]
+    if supply-demand = "infinite-stock" [
+      ; No restocking required
+      show "Infinite stock: No changes made to stock-table"
+        show (word "Supply-demand: " supply-demand " | Stock-table at the end: " stock-table)
     ]
 
- ;calculate average sales of past days
-    if restocking-time = 0 and ticks != 0 [ ;it is restocking day!
+      if supply-demand = "static-restocking" [
+        ; Reset stock-table to match initial-stock-table
+        foreach diets-list [ diets ->
+          table:put stock-table diets table:get initial-stock-table diets
+        ]
+        show "Static restocking: Stock-table reset to initial values"
+       show (word "Supply-demand: " supply-demand " | Stock-table at the end: " stock-table)
+      ]
 
+    if supply-demand = "dynamic-restocking" [
 
-      let diet-sublists-map table:make
-      show (list "meat-sublist" meat-sublist)
-      table:put diet-sublists-map "meat" (mean meat-sublist)
-      table:put diet-sublists-map "fish" (mean fish-sublist)
-      table:put diet-sublists-map "vegetarian" (mean vegetarian-sublist)
-      table:put diet-sublists-map "vegan" (mean vegan-sublist)
+        ; Dynamic restocking logic
+        let restocking-time ticks mod restocking-frequency
 
-      ;let's restock
-      foreach diets-list [ diets ->
-        let initial-stock-diet (table:get initial-stock-table diets)
-        ;get the sublist for the current diet
-        let sales-diet table:get diet-sublists-map diets
-
-        ifelse supply-demand = "dynamic-restocking" [
-
-        if (initial-stock-diet) != 0 [
-
-          ;calculate how the actual sales of each product relates to the margins set for changing the stock
-
-          let nr-products length product-selection ;number of products a food outlet offers
-          let threshold-sales-increase round ( ( upper-margin * initial-stock-diet) ) ;threshold for increasing stock is set at >90% sales of the available stock of this product
-          let threshold-sales-decrease round ( ( lower-margin * initial-stock-diet) ) ;threshold for decreasing stock is set at <80% sales of the available stock of this product
-          let percentage-sold ( (sales-diet / initial-stock-diet) * 100 ) ;calculate what percentage of the stock is sold
-          let lower-margin-sales abs (threshold-sales-decrease - sales-diet) ;how much did the actual sales deviate from the lower threshold-sales, a number set absolute
-          let upper-margin-sales abs (threshold-sales-increase - sales-diet) ;
-          let shop-size-factor (nr-products / 10) ;what does this do?
-
-          ifelse percentage-sold < threshold-sales-decrease [ ;if sales was below the lower margin sales threshold, reduce the stock
-            table:put stock-table diets round ( (initial-stock-diet - (lower-margin-sales * shop-size-factor)) )
-            ;show (word "decreasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
-            ] [
-            ifelse percentage-sold > threshold-sales-increase [ ;if sales was over the higher margin sales threshold, increase the stock
-              table:put stock-table diets round ( (initial-stock-diet + (upper-margin-sales * shop-size-factor)) )
-              ;show (word "increasing stock of " diets " from " initial-stock-diet " to " table:get stock-table diets)
-            ] [
-
-                ; percentage-sold >= threshold-sales-decrease and percentage-sold <= threshold-sales-increase [ ;if sales was between the margins, reset it with the average
-                table:put stock-table diets table:get initial-stock-table diets
-                ;show (word "restocking " initial-stock-diet " of " diets)
-              ]
+        if restocking-time = 0 and ticks != 0 [
+          foreach diets-list [ diets ->
+            let sales-product table:get sales-table diets
+            let rf (restocking-frequency + 1)
+            if diets = "meat" [
+              set meat-list lput sales-product meat-list
+              let length-lists (length meat-list)
+              set meat-sublist sublist meat-list (length-lists - rf) (length-lists)
+            ]
+            if diets = "fish" [
+              set fish-list lput sales-product fish-list
+              let length-lists (length fish-list)
+              set fish-sublist sublist fish-list (length-lists - rf) (length-lists)
+            ]
+            if diets = "vegetarian" [
+              set vegetarian-list lput sales-product vegetarian-list
+              let length-lists (length vegetarian-list)
+              set vegetarian-sublist sublist vegetarian-list (length-lists - rf) (length-lists)
+            ]
+            if diets = "vegan" [
+              set vegan-list lput sales-product vegan-list
+              let length-lists (length vegan-list)
+              set vegan-sublist sublist vegan-list (length-lists - rf) (length-lists)
             ]
           ]
 
+          let diet-sublists-map table:make
+          table:put diet-sublists-map "meat" (mean meat-sublist)
+          table:put diet-sublists-map "fish" (mean fish-sublist)
+          table:put diet-sublists-map "vegetarian" (mean vegetarian-sublist)
+          table:put diet-sublists-map "vegan" (mean vegan-sublist)
 
+          foreach diets-list [ diets ->
+            let initial-stock-diet (table:get initial-stock-table diets)
+            let sales-diet table:get diet-sublists-map diets
 
-          ;update the initial stock table with the current stock table for next iteration
-          table:put initial-stock-table diets table:get stock-table diets
+            if (initial-stock-diet != 0) [
+              let nr-products length product-selection
+              let threshold-sales-increase round (upper-margin * initial-stock-diet)
+              let threshold-sales-decrease round (lower-margin * initial-stock-diet)
+              let percentage-sold (sales-diet / initial-stock-diet) * 100
 
-        ] [
-          ;not stocking day?
-          table:put stock-table diets table:get initial-stock-table diets
+              ifelse percentage-sold < threshold-sales-decrease [
+                table:put stock-table diets round (initial-stock-diet - lower-margin * nr-products / 10)
+              ] [
+                ifelse percentage-sold > threshold-sales-increase [
+                  table:put stock-table diets round (initial-stock-diet + upper-margin * nr-products / 10)
+                ] [
+                  table:put stock-table diets initial-stock-diet
+                ]
+              ]
+            ]
+          ]
         ]
 
-        ;record sales
-        if restocking-time != 0 or ticks = 0 [ ;it is not restocking day
-
-
-            let sales-product table:get sales-table diets
-
-            ; Add sales-product to the appropriate list based on the diet type
-            if diets = "meat" [ set meat-list lput sales-product meat-list]
-            ;show (list "meat-list" meat-list) ]
-            if diets = "fish" [ set fish-list lput sales-product fish-list]
-            ;show (list "fish-list" fish-list) ]
-            if diets = "vegetarian" [ set vegetarian-list lput sales-product vegetarian-list ]
-            if diets = "vegan" [ set vegan-list lput sales-product vegan-list ]
-
-
-
-
-        ]
-
-
-
+        show (word "Supply-demand: " supply-demand " | Stock-table at the end: " stock-table)
       ]
-    ]
   ]
 
-
 end
+
+
 
 
 ;;; END OF FOOD OUTLETS CHECK SALES AND UPDATE STOCKS ;;;
@@ -1609,6 +1589,13 @@ to prepare-sales-reporter
       table:put report-sales-table diets total-sales
     ]
 
+    let total-sales-potatoes 0
+
+    let sales-potatoes table:get potatoes-table "potatoes"
+    set total-sales-potatoes total-sales-potatoes + sales-potatoes
+    table:put report-potatoes-table "potatoes" total-sales-potatoes
+
+
     ;median sales
     let median-sales-list []
     let median-sales "none"
@@ -1637,6 +1624,8 @@ to prepare-stock-reporter
       set total-stock total-stock + stock-product
       table:put report-stock-table diets total-stock
     ]
+
+    show report-stock-table
 
     ;median stocks
     let median-stock-list []
@@ -1843,6 +1832,12 @@ to-report vegan-sales
   report vegan-sold
 end
 
+to-report potatoes-sales
+  let potatoes-sold table:get report-potatoes-table "potatoes"
+  report potatoes-sold
+end
+
+
 ;; stocks ;;
 
 to-report meat-stock
@@ -1870,6 +1865,7 @@ to-report total-stocks
   let all-stocks (meat-stock + fish-stock + vegetarian-stock + vegan-stock)
   report all-stocks
 end
+
 
 ;; relative change in meals cooked ;;
 
@@ -2622,7 +2618,18 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-2
+0
+
+MONITOR
+306
+205
+415
+250
+potatoes-bought
+potatoes-sales
+1
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
