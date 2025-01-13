@@ -17,7 +17,7 @@ directed-link-breed [household-memberships household-membership]
 
 
 globals [
-  diet-list ;weighted list of diets
+  weighted-diets-list ;weighted list of diets
   diets-list ;list with only diets
   product-list ; weighted list of products
   income-levels
@@ -51,7 +51,7 @@ globals [
 
 
 persons-own [
-  ;age
+  meal-enjoyment-table
   diet
   is-cook?
   cooking-skills
@@ -64,11 +64,9 @@ persons-own [
   my-last-dinner
   last-meals-quality
   last-meal-enjoyment
-  meal-enjoyments-table
   my-cook
   my-dinner-guests
   network-diet-diversity
-  ;egoism
   status
   neophobia
   individualism
@@ -111,6 +109,8 @@ food-outlets-own [
   vegetarian-sublist
   vegan-list
   vegan-sublist
+  complaints-from-customers
+  potatoes-table
 ]
 
 ;;;;;;;;;;;
@@ -142,7 +142,7 @@ end
 
 to setup-globals
 
-  set diet-list (list (list "meat" 0.94 ) (list  "fish" 0.02 ) (list "vegetarian" 0.02 ) (list "vegan" 0.02 )) ;hard-coded values of dietary identities in the Netherlands
+  set weighted-diets-list (list (list "meat" 0.94 ) (list  "fish" 0.02 ) (list "vegetarian" 0.02 ) (list "vegan" 0.02 )) ;hard-coded values of dietary identities in the Netherlands
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
   set income-levels-list (list "low" "middle" "high")
@@ -221,7 +221,6 @@ to setup-households
 
     let new-family random-poisson 2.1 ;hard-coded mean
     let new-family-abs abs round new-family
-    print new-family-abs
     hatch-persons new-family-abs + 1
     set empty-house? false
     set meal-cooked? false
@@ -241,7 +240,37 @@ to setup-persons
     ;set age random-normal 41 25 ; mean and sd are chosen based on Dutch demographic data
     set shape "person"
     set color pink
-    set diet first rnd:weighted-one-of-list diet-list [ [p] -> last p ]
+    set meal-enjoyment-table table:make
+
+    let my-diets-list []
+
+    foreach weighted-diets-list [ diets ->
+      let diet-name first diets            ; Extract the diet name (e.g., "meat")
+      show diet-name
+      let diet-weight last diets           ; Extract the weight (e.g., 0.94)
+      show diet-weight
+      let meal-enjoyment random-float diet-weight ; Calculate meal enjoyment as a random-float of the diet's weight
+      table:put meal-enjoyment-table diet-name meal-enjoyment
+      show meal-enjoyment-table
+    ]
+    set my-diets-list table:to-list meal-enjoyment-table
+    show my-diets-list
+
+    set diet max my-diets-list
+    show diet
+
+      let dinner-list-majority [ (list diet) ] of my-dinner-guests
+  let freq-list map [ i -> frequency dinner-list-majority] dinner-list-majority ;creates a list with for each diet on dinner-list-majority how frequent it appears in dinner-list-majority
+  let dinner-freq-table table:from-list (map list freq-list dinner-list-majority) ;creates a table with the frequency for each diet on the dinner-list majority
+  let count-majority-choice max freq-list ;select the highest count
+
+  let freq-list-unique remove-duplicates freq-list
+  let freq-list-sorted sort freq-list-unique
+
+
+
+
+
     set is-cook? false
     set shopping-list []
     set meal-to-cook "none"
@@ -252,11 +281,9 @@ to setup-persons
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment "none"
-    set meal-enjoyments-table table:make
 
-    foreach diets-list [ diets ->
-      table:put meal-enjoyments-table diets 0
-    ]
+
+
 
     set network-diet-diversity 0
     set cooks-cooking-skills 0
@@ -333,6 +360,15 @@ to setup-food-outlets
     set vegetarian-sublist []
     set vegan-list []
     set vegan-sublist []
+    set complaints-from-customers table:make
+
+    foreach diets-list [ diets ->
+      table:put complaints-from-customers diets 0
+    ]
+
+    set potatoes-table table:make
+    table:put potatoes-table "potatoes" 0
+
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
 
@@ -421,7 +457,7 @@ to setup-food-outlets
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
-    set supermarket-changes length sorted-food-outlets
+    set supermarket-changes 3
   ]
 
 end
@@ -504,6 +540,7 @@ to closure-of-tick
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
+    set supermarket-changes 3
   ]
 
   ask households [
@@ -923,46 +960,40 @@ to to-do-groceries
 
 
 
-  ifelse cooks-visit-supermarket? = true [
+    ifelse supply-demand = "static-restocking" or supply-demand = "dynamic-restocking" [
 
-    ask persons with [is-cook? = true and meal-to-cook != "none" and basket-full? = false and bought? = false] [
-     show "I am selecting mysupermarket"
-       ifelse supermarket-changes > 1 [
-      select-supermarket ;if the cook cannot change supermarket, he is referred to get-alternative-groceries
+      ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket = "none" and basket-full? = false and bought? = false] [
+        show "start groceries I am selecting my supermarket"
+        ifelse supermarket-changes >= 1 and supermarket-changes <= 3 [ ;so supermarket changes is 1,2 or 3
+          show (word "to do groceries My supermarket changes are: " supermarket-changes)
+          select-supermarket ;if the cook cannot change supermarket, he is referred to get-alternative-groceries
         ]
         ;if the cook is at his last supermarket
-  [show "no more supermarkets to try; looking for alternative groceries"
-      get-alternative-groceries]
+        [show "start groceries No more supermarkets to try; looking for alternative groceries"
+          get-alternative-groceries]
 
-    ]
-
-    ask persons with [is-cook? = true and my-supermarket != "none" and basket-full? = false and bought? = false] [
-      ifelse my-supermarket != "none" [
-        show (word "start-groceries I have just selected a supermarket and am getting groceries:" my-supermarket)
-      get-groceries
       ]
-      [
-        show "No supermarket selected "
+
+      ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket != "none" and basket-full? = false and bought? = false] [
+        show (word "start-groceries I am getting groceries at: " my-supermarket)
+        get-groceries
       ]
+
+
+      ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket != "none" and basket-full? = true and bought? = false] [
+        show (word "start groceries My basket is full and I am checking out, buying: " meal-to-cook)
+        check-out-groceries
+      ]
+
     ]
 
-     ask persons with [is-cook? = true and my-supermarket != "none" and basket-full? = true and bought? = false] [
-      show (word "My basket is full and I am checking out:" my-dinner-guests meal-to-cook)
-      check-out-groceries
-    ]
-
-  ]
-
-    ;if cooks-visit-supermarket? = false
+    ;if supply-demand = "infinite-stock"
     [
-      show "food outlet interaction is false; skipping groceries, we eat from heaven"
+      show "start-groceries Skipping groceries, we eat from heaven (The model simulates household interaction only.)"
       set bought? true
     ]
 
   ]
-
-
-
 
 end
 
@@ -970,11 +1001,11 @@ to select-supermarket
 
 
       ; This procedure sets supermarket != "none"
-
+  show (word "select supermarket This is my list of supermarkets: " sorted-food-outlets)
       set my-supermarket first sorted-food-outlets
       set supermarket-changes supermarket-changes - 1
       set sorted-food-outlets but-first sorted-food-outlets
-      show (list "Select-supermarket: My new supermarket is" my-supermarket)
+      show (word "select-supermarket My new supermarket is: " my-supermarket)
 
 
 end
@@ -1010,22 +1041,23 @@ to get-groceries
 
   ; Decision tree for availability and sufficient stock
   if available? = true and stock-sufficient? = true  [
-    show (word "get groceries My product is available: " meal-to-cook my-supermarket)
+    show (word "get groceries My product is available: " meal-to-cook " at " my-supermarket)
     set basket-full? true
      ]
 
   if not available? or stock-sufficient? = false [
-    show (word "get groceries My product is NOT available: " meal-to-cook my-supermarket)
+    show (word "get groceries My product is NOT available: " meal-to-cook " at " my-supermarket)
     ifelse neophobic? = false [
     show "get groceries I am NOT neophobic and will get alternative groceries"
     get-alternative-groceries
   ] [
-  ifelse neophobic? = true and supermarket-changes > 1 [
-  show "I am neophobic and will chose another supermarket"
+  ifelse neophobic? = true and supermarket-changes >= 1 and supermarket-changes <= 3 [
+
+  show (word "get groceries I am neophobic and will chose another supermarket, my supermarket changes are: " supermarket-changes)
   select-supermarket]
 
       ;if supermarket-changes is < 1
-      [show "I am neophobic but I cannot switch supermarket so I'll get alternative groceries"
+      [show (word "get groceries I am neophobic but I cannot switch supermarket so I'll get alternative groceries,  my supermarket changes are: " supermarket-changes)
         get-alternative-groceries]
     ]
   ]
@@ -1034,18 +1066,74 @@ to get-groceries
 
 end
 
-to get-alternative-groceries ;this procedure should take place in the supermarket where the cook is at that moment and include the ingredients that the supermarket offers
+to get-alternative-groceries ;this procedure takes place in the supermarket where the cook is at that moment and includes the ingredients that the supermarket offers
 
   set shopping-list []
-  let alternative-shopping-list[]
-  let new-meal "none"
+  let alternative-shopping-list []
+  let nr-dinner-guests count my-dinner-guests
+  let sufficient-stock? false
 
+  ;set alternative shopping list
   ask my-supermarket [
     set alternative-shopping-list product-selection
-    set new-meal one-of alternative-shopping-list
+
   ]
 
-  set meal-to-cook new-meal
+  let stock-table-alternative-groceries table:make
+
+  ; ask the supermarket to provide stock for each item in the alternative-shopping-list and put the results in a table
+  show (word "My alternative shopping list: " alternative-shopping-list)
+  foreach alternative-shopping-list [protein ->
+    ask my-supermarket [
+      let current-stock table:get stock-table protein
+      table:put stock-table-alternative-groceries protein current-stock
+      show stock-table-alternative-groceries
+    ]
+  ]
+
+  let sufficient-stock-list []
+
+  ; loop through the shopping list and compare stock with nr-dinner-guests and create a list with proteins that are sufficiently in stock
+  foreach alternative-shopping-list [protein ->
+    let current-stock table:get stock-table-alternative-groceries protein
+    ifelse current-stock >= nr-dinner-guests [
+      show (word "get alternative groceries Sufficient stock found for: " protein)
+      set sufficient-stock? true
+      set sufficient-stock-list lput protein sufficient-stock-list
+      show sufficient-stock-list
+    ] [
+      show (word "get alternative groceries Insufficient stock for: " protein)
+    ]
+  ]
+
+  let length-sufficient-stock-list length sufficient-stock-list
+
+  ifelse length-sufficient-stock-list > 0 [
+    set meal-to-cook one-of sufficient-stock-list
+    set basket-full? true
+    show (word "get alternative groceries My basket is full and I am checking out:" my-dinner-guests meal-to-cook)
+    check-out-groceries
+  ]
+  ;if the supermarket does not have any protein products left, the cook will buy a non-protein product and notifies management of the supermarket they stocks are too limited
+  [
+    show (word "get alternative groceries I cannot buy a protein source here: " my-supermarket)
+    ask my-supermarket [
+      show complaints-from-customers
+      foreach alternative-shopping-list [protein ->
+        let current-nr-complaints table:get complaints-from-customers protein
+        table:put complaints-from-customers protein (current-nr-complaints + nr-dinner-guests)
+      ]
+      show (word "Complaints we have received: " complaints-from-customers)
+    ]
+    set meal-to-cook "potatoes"
+    set basket-full? true
+    show (word "I am buying: " meal-to-cook " and I am going to check out my groceries")
+    check-out-groceries
+
+
+  ]
+
+
 
 
 end
@@ -1056,6 +1144,7 @@ to check-out-groceries
   let requested-product meal-to-cook
   let nr-dinner-guests count my-dinner-guests
 
+  ifelse meal-to-cook != "potatoes" [
   ask my-supermarket [
     ;cook will reduce the stock of the in which supermarket he purchases his product
     foreach diets-list [ diets ->
@@ -1077,21 +1166,36 @@ to check-out-groceries
   ]
 
   ;the cook gets the product and adds his purchase to the sales of the food outlet
-  if meal-to-cook != "none" [
-    ;show (list requested-product nr-dinner-guests)
-    ask my-supermarket [
-      let current-sales (table:get sales-table requested-product)
-      ;show (list current-sales requested-product)
-      table:put sales-table requested-product (current-sales + nr-dinner-guests)
-      ;show (list table:get sales-table requested-product requested-product)
+    if meal-to-cook != "none" [
+      ;show (list requested-product nr-dinner-guests)
+      ask my-supermarket [
+        let current-sales (table:get sales-table requested-product)
+        ;show (list current-sales requested-product)
+        table:put sales-table requested-product (current-sales + nr-dinner-guests)
+        ;show (list table:get sales-table requested-product requested-product)
 
 
+      ]
     ]
 
     ;show (list "I just bought groceries - before check-out" bought?)
     set bought? true
-    show (list "I just bought groceries" bought? nr-dinner-guests meal-to-cook)
+    show (word "check-out-groceries I just bought groceries: I bought = " bought? " Nr of guests: " nr-dinner-guests " What I'm cooking: " meal-to-cook)]
+
+  ;if the cook had to buy potatoes:
+  [
+    ask my-supermarket [
+      ;only recording sales because we assume that the supermarket has infinite stock of potatoes
+      let current-sales-potatoes (table:get potatoes-table requested-product)
+      table:put potatoes-table requested-product (current-sales-potatoes + nr-dinner-guests)
+      show potatoes-table
+    ]
+    set bought? true
+    show (word "check-out-groceries I just bought groceries: I bought = " bought? " Nr of guests: " nr-dinner-guests " What I'm cooking: " meal-to-cook)
   ]
+
+
+
 
 end
 
@@ -1171,12 +1275,12 @@ to update-diet-preference
         ;in this version people consider changing their diet preference after liking a meal several times, depending on their uncertainty avoidance
         (ifelse last-meal-enjoyment = "positive" [
 
-          ;update table with meal enjoyments for each type of diet based on uncertainty avoidance
-          let current-meal-enjoyment table:get meal-enjoyments-table my-last-dinner
+          ;update table with meal enjoyments for each type of diet based on neophobia
+          let current-meal-enjoyment table:get meal-enjoyment-table my-last-dinner
           let update-meal-enjoyment neophobia > random-float 1 ;this evaluates to FALSE (I am too neophobic to consider liking new foods) to TRUE (I am neophilic enough to consider liking new foods)
 
           (ifelse update-meal-enjoyment = true [
-            table:put meal-enjoyments-table my-last-dinner (current-meal-enjoyment + 1)
+            table:put meal-enjoyment-table my-last-dinner (current-meal-enjoyment + 1)
             ]
             update-meal-enjoyment = false [
               ;not updating meal-enjoyments
@@ -1186,10 +1290,10 @@ to update-diet-preference
           )
 
           ;check how often the person has liked the last meal he had and update accordingly (assuming it takes 8-9 times to like a new food, based on literature)
-          let nr-meal-enjoyments table:get meal-enjoyments-table my-last-dinner
+          let nr-meal-enjoyments table:get meal-enjoyment-table my-last-dinner
           if nr-meal-enjoyments >= 8 [
             set diet my-last-dinner
-            table:put meal-enjoyments-table my-last-dinner 0
+            table:put meal-enjoyment-table my-last-dinner 0
           ]
           ]
           last-meal-enjoyment = "negative" [
@@ -1319,12 +1423,12 @@ to check-sales-tables ;food-outlet procedure
 
 
     ;if the supermarket has had no sales for several weeks, it will throw an error
-    if cooks-visit-supermarket? = true [
-      (ifelse no-sales-count <= no-sales- [
+    if supply-demand = "static-restocking" or supply-demand = "dynamic-restocking" [
+      (ifelse no-sales-count <= 180 [ ;hard-coded as 6 months of no sales
         ;do nothing - stay in business
         ]
 
-        no-sales-count > no-sales-threshold [ ;before going out of business, create a new supermarket with randomly selected stock
+        no-sales-count > 180 [ ;hard-coded as 6 months of no sales
 
           show ("I need to close my business")
           set error? true
@@ -1399,7 +1503,7 @@ to check-sales-restocking
         ;get the sublist for the current diet
         let sales-diet table:get diet-sublists-map diets
 
-        ifelse restocking? = true and cooks-visit-supermarket? = true [
+        ifelse supply-demand = "dynamic-restocking" [
 
         if (initial-stock-diet) != 0 [
 
@@ -2145,7 +2249,7 @@ SLIDER
 130
 initial-nr-food-outlets
 initial-nr-food-outlets
-1
+3
 30
 6.0
 1
@@ -2167,17 +2271,6 @@ food-outlet-service-area
 1
 NIL
 HORIZONTAL
-
-SWITCH
-9
-287
-194
-320
-cooks-visit-supermarket?
-cooks-visit-supermarket?
-0
-1
--1000
 
 PLOT
 414
@@ -2229,32 +2322,6 @@ upper-margin
 1
 NIL
 HORIZONTAL
-
-SLIDER
-1737
-87
-1909
-120
-no-sales-threshold
-no-sales-threshold
-0
-365
-180.0
-10
-1
-NIL
-HORIZONTAL
-
-SWITCH
-174
-287
-272
-320
-restocking?
-restocking?
-1
-1
--1000
 
 PLOT
 645
@@ -2518,16 +2585,6 @@ SENSITIVITY ANALYSIS
 1
 
 TEXTBOX
-14
-265
-164
-283
-Supply - demand
-10
-0.0
-1
-
-TEXTBOX
 12
 336
 162
@@ -2548,10 +2605,10 @@ Adjust diets at t = 365
 1
 
 PLOT
-939
-182
-1165
-332
+1261
+10
+1487
+160
 total sales
 NIL
 NIL
@@ -2582,6 +2639,16 @@ restocking-frequency
 1
 NIL
 HORIZONTAL
+
+CHOOSER
+11
+269
+161
+314
+supply-demand
+supply-demand
+"infinite-stock" "static-restocking" "dynamic-restocking"
+2
 
 @#$#@#$#@
 ## WHAT IS IT?
