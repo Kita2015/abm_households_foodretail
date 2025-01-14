@@ -1136,7 +1136,7 @@ end
 
 to check-out-groceries
 
-  ifelse supply-demand = "dynamic-restocking" [
+  ifelse supply-demand = "dynamic-restocking" or supply-demand = "static-restocking" [
 
     let requested-product meal-to-cook
     let nr-dinner-guests count my-dinner-guests
@@ -1195,7 +1195,7 @@ to check-out-groceries
     ]
   ]
 
-  ;if supply-demand = "static-restocking" or "infinite-stock"
+  ;if supply-demand = "infinite-stock"
   [
     ;no need to keep track of stocks reduced by people buying as the shops will restock using initial stock every time step; only tracking sales would be enough
   ]
@@ -2642,7 +2642,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-1
+0
 
 MONITOR
 306
