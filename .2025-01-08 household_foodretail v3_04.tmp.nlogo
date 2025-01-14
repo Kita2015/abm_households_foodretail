@@ -1655,8 +1655,10 @@ to prepare-stock-reporter
         let current-total (table:get report-stock-table diets)
         table:put report-stock-table diets (current-total + stock-product)
       ] [
-        ; If the product is not offered, do nothing
-        ; Keep the current total unchanged
+        ; If the product is not offered,
+        show (word product-selection " so I CANNOT add stock of: " diets)
+        let current-total 0
+        table:put report-stock-table diets current-total ; Keep the current total unchanged
       ]
     ]
 
@@ -2642,7 +2644,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-1
+0
 
 MONITOR
 306
