@@ -273,6 +273,7 @@ to setup-persons
     set meal-to-cook "none"
     set cooking-skills random-float 1
     set status random-float 1
+    ;set status 0.5
     set neophobia random-float 1
     set individualism random-float 1
     set my-last-dinner "none"
@@ -550,8 +551,9 @@ to closure-of-tick
     set diet-diversity count-diets
   ]
 
-    foreach diets-list [ diets ->
-      table:put report-stock-table diets 0
+  foreach diets-list [ diets ->
+    table:put report-stock-table diets 0
+    table:put report-sales-table diets 0
   ]
 
 
@@ -1593,54 +1595,30 @@ to prepare-sales-reporter
 
   ask food-outlets [
 
-    ;show sales-table
-    ;show stock-table
-
-    ;total sales
-    let total-sales 0
-
-    foreach product-selection [ diets ->
+    foreach diets-list [ diets ->
+      ; check if current food outlet sells this product
+      ifelse member? diets product-selection [
       let sales-product table:get sales-table diets
-      set total-sales total-sales + sales-product
-      table:put report-sales-table diets total-sales
+
+        ;add the sales of the product to the global report-sales table
+      let current-sales (table:get report-sales-table diets)
+      table:put report-sales-table diets (current-sales + sales-product)
+    ] [
+        ; If the product is not offered, do nothing
+        ; Keep the current sales unchanged
+      ]
     ]
 
-    let total-sales-potatoes 0
 
     let sales-potatoes table:get potatoes-table "potatoes"
-    set total-sales-potatoes total-sales-potatoes + sales-potatoes
-    table:put report-potatoes-table "potatoes" total-sales-potatoes
-
-
-    ;median sales
-    let median-sales-list []
-    let median-sales "none"
-
-    foreach product-selection [diets ->
-      let sold-product table:get sales-table diets
-      set median-sales-list fput sold-product median-sales-list
-      set median-sales median median-sales-list
-      table:put report-median-sales-table diets median-sales
-      ;show report-median-sales-table
-    ]
-
+    let current-sales-potatoes table:get potatoes-table "potatoes"
+    table:put report-potatoes-table "potatoes" (current-sales-potatoes + sales-potatoes)
   ]
+
 
 end
 
 to prepare-stock-reporter
-
-;  ask food-outlets [
-;
-;    ;total stocks
-;    let total-stock 0
-;
-;    foreach product-selection [ diets ->
-;      let stock-product table:get stock-table diets ;subtract stock of diets at t=1
-;      set total-stock total-stock + stock-product ;add subtracted stock of diets at t=1 to total-stock of diets at t=1
-;      table:put report-stock-table diets total-stock ;put the total-stock of diets at t=1 in the stocks table to be reported
-;    ]
-;
 
   ask food-outlets [
 
@@ -2599,10 +2577,10 @@ Adjust diets at t = 365
 1
 
 PLOT
-1261
-10
-1487
-160
+1343
+14
+1569
+164
 total sales
 NIL
 NIL
