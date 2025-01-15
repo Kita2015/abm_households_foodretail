@@ -1220,7 +1220,7 @@ to check-out-groceries
         if debug? [
           show (word "Our stock table: " stock-table)
         ]
-      ]
+
 
         ;the cook gets the product and adds his purchase to the sales of the food outlet
         if meal-to-cook != "none" [
@@ -1249,7 +1249,7 @@ to check-out-groceries
           show (word "check-out-groceries I just bought = " bought? meal-to-cook " for " nr-dinner-guests)
         ]
       ]
-
+    ]
 
     ;if the cook had to buy potatoes:
     [
@@ -2719,7 +2719,7 @@ SWITCH
 659
 debug?
 debug?
-0
+1
 1
 -1000
 
