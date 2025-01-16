@@ -1,4 +1,4 @@
-;; version 3.3 ;;
+;; version 4.01 ;;
 
 extensions [ rnd table ]
 
@@ -431,32 +431,6 @@ to setup-food-outlets
      show (word "my stock table: " stock-table)
     ]
 
-      (ifelse more-sustainable-shops? = true or less-animal-proteins? = true [
-
-      foreach diets-list [ diets ->
-        table:put initial-stock-table diets ifelse-value (member? diets product-selection) [
-          round ( (potential-costumers / nr-products))
-        ] [
-          0
-        ]
-
-        table:put sales-table diets 0
-        table:put stock-table diets table:get initial-stock-table diets
-
-      ]
-
-      set product-selection diets-list
-
-      ]
-
-      more-sustainable-shops? = false or less-animal-proteins? = false [
-        ;do nothing
-      ]
-
-      ;if something goes wrong
-      [show "I cannot decide if I will become more sustainable or have less animal proteins over time or not!"]
-    )
-
     set no-sales-count 0
     set label (list potential-costumers product-selection)
 
@@ -477,14 +451,15 @@ end
 
 to go
 
-  if ticks = 365 * 10 or error? = true [stop]
+  if ticks = 110 [stop]
+  ;or error? = true [stop]
 
   closure-of-tick
 
   ;interventions
   influence-diets
-  more-sustainable-shops
-  less-animal-proteins-shops
+  change-plant-protein
+  change-animal-protein
 
   ;start having dinner
   select-group-and-cook
@@ -498,6 +473,7 @@ to go
   set-meal-evaluation
   update-diet-preference
   evaluate-meal
+  normalize-status
 
   ;ask food outlets
   check-sales-tables
@@ -567,11 +543,11 @@ to closure-of-tick
 
 
   ask food-outlets [
+    table:put potatoes-table "potatoes" 0
     foreach diets-list [ diets ->
       table:put sales-table diets 0
     ]
-
-
+  ]
 
   foreach diets-list [diets ->
     table:put report-delta-meals-cooked-table diets 0
@@ -648,63 +624,114 @@ to influence-diets
 
 end
 
-to more-sustainable-shops
+to change-plant-protein
 
-  if more-sustainable-shops? = true [
+  ask food-outlets [
 
-    let year-passed ticks mod 365
+   if change-plant-protein? = true [
+
+
+
+    let year-passed ticks mod
     let update-shops "none"
 
-    ifelse year-passed = 1 [
-      set update-shops true
-    ]
-    ;if year-passed != 1
-    [set update-shops false]
+      ifelse year-passed = 1 and ticks != 1 [
+        set update-shops true
+         if debug? [
+        show (word "before more plant proteins, tick" ticks initial-stock-table)
+        ]
+      ]
+      ;if two years have not passed yet
+      [set update-shops false]
 
     if update-shops = true [
+
 
       let sustainable-foods []
 
 
-      ;if a food outlet already sells vegetarian and vegan
 
-      ;check product selection of food outlet
-      ask food-outlets [
+        set sustainable-foods (list "vegan")
+        ;if debug? [
 
-        set sustainable-foods (list "vegetarian" "vegan")
-        if debug? [
-        show (word "more plant proteins, tick" ticks initial-stock-table)
-        ]
+        ;]
         ;update sustainable stocks
         foreach sustainable-foods [ food-item ->
 
           let current-stock table:get initial-stock-table food-item
 
-          (ifelse current-stock != 0 [
+          ifelse current-stock = 0 and p-change-plant-protein > 0 [
 
-            let assortment-change (p-more-sustainable * business-orientation * current-stock)
-            if debug? [
-            show (word "My assortment-change: " assortment-change)
-            ]
-            let new-stock current-stock + assortment-change
-            table:put initial-stock-table food-item round new-stock
+            ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
+            let assortment-change (business-orientation * potential-costumers * p-change-plant-protein)
+            table:put initial-stock-table food-item round assortment-change
             table:put stock-table food-item table:get initial-stock-table food-item
+
+            if debug? [
+              show (word "after change plant proteins if current stock = 0, tick" ticks initial-stock-table)
             ]
+          ]
+          [
 
-            current-stock = 0 [ ;if the food outlet did not sell vegetarian and vegan before, it will now start selling some products
-              let assortment-change (business-orientation * potential-costumers * p-more-sustainable)
-              table:put initial-stock-table food-item round assortment-change
-              table:put stock-table food-item table:get initial-stock-table food-item
+          ifelse current-stock = 0 and p-change-plant-protein < 0 [
+
+            ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
+            ;do nothing
+          ]
+
+
+            ;ifelse current-stock != 0
+            [
+              ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+              let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
+              show (word food-item " assortment-change " assortment-change)
+              let new-assortment (current-stock + assortment-change)
+              ifelse new-assortment > 0 [
+                table:put initial-stock-table food-item new-assortment
+                table:put stock-table food-item table:get initial-stock-table food-item
+                if debug? [
+                show (word "after change plant proteins if we sold vega(n) before, tick" ticks initial-stock-table)
+                ]
+              ]
+
+              ;ifelse new-assortment < 0 the product will be set to 0, meaning it is not available
+              [
+                table:put initial-stock-table food-item 0
+                table:put stock-table food-item 0
+                if debug? [
+                show (word "after change plant proteins preventing negative stock, tick" ticks initial-stock-table)
+                ]
+              ]
+
             ]
-
-            ;if something goes wrong
-            [show "I was not able to check if I already sold vegetarian or vegan products!"]
-          )
-
+          ]
 
 
 
         ]
+
+        ;update labels of food outlet
+       ask food-outlets [
+
+          let current-product-selection []
+          foreach diets-list [ diets ->
+            let current-availability table:get stock-table diets
+
+            ifelse current-availability != 0 [
+              set current-product-selection lput diets current-product-selection
+            ]
+            ;if the product is not offered
+            [
+              ;do nothing
+            ]
+          ]
+
+          set label (list potential-costumers current-product-selection)
+
+
+        ]
+
+
       ]
 
     ]
@@ -712,65 +739,122 @@ to more-sustainable-shops
 
 
 
+
 end
 
-to less-animal-proteins-shops
+to change-animal-protein
 
-  if less-animal-proteins? = true [
 
-    let year-passed ticks mod 365
+
+      ;if a food outlet already sells vegetarian and vegan
+
+      ;check product selection of food outlet
+
+  ask food-outlets [
+
+   if change-animal-protein? = true [
+
+
+
+    let year-passed ticks mod 100
     let update-shops "none"
 
-    ifelse year-passed = 1 [
-      set update-shops true
-    ]
-    ;if year-passed != 1
-    [set update-shops false]
+      ifelse year-passed = 1 and ticks != 1 [
+        set update-shops true
+          print "Changing animal-based assortment"
+        show (word "before more animal proteins, tick" ticks initial-stock-table)
+      ]
+      ;if two years have not passed yet
+      [set update-shops false]
 
     if update-shops = true [
 
-      let animal-foods []
 
-      ;if a food outlet already sells meat and fish
+      let unsustainable-foods []
 
-      ;check product selection of food outlet
-      ask food-outlets [
 
-        set animal-foods (list "meat" "fish")
-        if debug? [
-        show (word "less animal protein, tick" ticks initial-stock-table)
-        ]
+
+        set unsustainable-foods (list "meat" "fish" "vegetarian")
+        ;if debug? [
+
+        ;]
         ;update sustainable stocks
-        foreach animal-foods [ food-item ->
+        foreach unsustainable-foods [ food-item ->
 
           let current-stock table:get initial-stock-table food-item
 
-          (ifelse current-stock != 0 [
+          ifelse current-stock = 0 and p-change-animal-protein > 0 [
 
-            let assortment-change (p-less-animal-proteins * business-orientation * current-stock)
-            let new-stock current-stock - assortment-change
+            ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
+            let assortment-change (business-orientation * potential-costumers * p-change-animal-protein)
+            table:put initial-stock-table food-item round (assortment-change)
+            table:put stock-table food-item table:get initial-stock-table food-item
 
-            ifelse new-stock <= 0 [
-              table:put initial-stock-table food-item 0
-              table:put stock-table food-item table:get initial-stock-table food-item
+            ;if debug? [
+              show (word "after change animal proteins if current stock = 0, tick" ticks initial-stock-table)
+            ;]
+          ]
+          [
+
+          ifelse current-stock = 0 and p-change-animal-protein < 0 [
+
+            ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
+            ;do nothing
+          ]
+
+
+            ;ifelse current-stock != 0
+            [
+              ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+              let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
+              show (word food-item " assortment-change " assortment-change)
+              let new-assortment (current-stock + assortment-change)
+              ifelse new-assortment > 0 [
+                table:put initial-stock-table food-item new-assortment
+                table:put stock-table food-item table:get initial-stock-table food-item
+                ;if debug? [
+                show (word "after change animal proteins if we sold vega(n) before, tick" ticks initial-stock-table)
+                ;]
+              ]
+
+              ;ifelse new-assortment < 0 the product will be set to 0, meaning it is not available
+              [
+                table:put initial-stock-table food-item 0
+                table:put stock-table food-item 0
+                ;if debug? [
+                show (word "after change animal proteins preventing negative stock, tick" ticks initial-stock-table)
+                ;]
+              ]
+
             ]
-            ;new-stock != 0
-            [table:put initial-stock-table food-item round new-stock
-              table:put stock-table food-item table:get initial-stock-table food-item]
-            ]
-
-            current-stock = 0 [ ;if a food outlet does not sell either meat or fish
-                                ;do nothing, you cannot reduce a stock that does not exists
-            ]
-
-            ;if something goes wrong
-            [show "I was not able to check if I already sold meat or fish products!"]
-          )
-
+          ]
 
 
 
         ]
+
+        ;update labels of food outlet
+       ask food-outlets [
+
+          let current-product-selection []
+          foreach diets-list [ diets ->
+            let current-availability table:get stock-table diets
+
+            ifelse current-availability != 0 [
+              set current-product-selection lput diets current-product-selection
+            ]
+            ;if the product is not offered
+            [
+              ;do nothing
+            ]
+          ]
+          show (word "changing label to " current-product-selection)
+          set label (list potential-costumers current-product-selection)
+
+
+        ]
+
+
       ]
 
     ]
@@ -1179,7 +1263,7 @@ to get-alternative-groceries ;this procedure takes place in the supermarket wher
     show (word "get alternative groceries I cannot buy ANY protein source here for " nr-dinner-guests " at " my-supermarket)
   ]
   ask my-supermarket [
-    foreach alternative-shopping-list [protein ->
+    foreach alternative-shopping-list [protein -> ;this way the cook files a complaint about each of the protein sources that the supermarket offers, not just one, while he might need only one.
       let current-nr-complaints table:get complaints-from-customers protein
       table:put complaints-from-customers protein (current-nr-complaints + nr-dinner-guests)
     ]
@@ -1444,7 +1528,7 @@ to evaluate-meal
     let my-status status
     let status-of-my-cook [status] of my-cook
     let delta-status abs (my-status - status-of-my-cook)
-    let status-change delta-status * status-increment
+    let status-change delta-status * 0.01
     ;print (list who my-status my-cook status-of-my-cook)
 
     (ifelse my-status < status-of-my-cook or my-status = status-of-my-cook [ ;if my cook has a higher status than myself or the same status, I will always show gratitude for the meal, even if I don't like it
@@ -1484,20 +1568,20 @@ to evaluate-meal
       let my-status status
 
       let delta-status abs (my-status - cooks-status)
-      let status-change delta-status * status-increment
+      let status-change delta-status * 0.01
 
       (ifelse last-meal-enjoyment = "positive" [
-        set status min (list 1 (status + status-change))
+        set status (status + status-change)
         ]
 
         last-meal-enjoyment = "negative" and cooks-status > my-status [
           ;print "my status is being reduced because I did not like the meal"
-          set status max (list 0 (status - status-change))
+          set status (status - status-change)
         ]
 
         last-meal-enjoyment = "negative" and (cooks-status < my-status or cooks-status = my-status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
                                                                                                       ;print "my status is being increased because I am considered important by the cook"
-          set status min (list 1 (status + status-change))
+          set status (status + status-change)
         ]
 
         ;if no last-meal-enjoyment
@@ -1506,6 +1590,39 @@ to evaluate-meal
       )
 
     ]
+  ]
+
+
+end
+
+to normalize-status
+
+  ;attempt to adjust for the strong binary outcome of status distribution in the population, as status is artifically capped at 0 and 1.
+
+  let status-list []
+  let max-status "none"
+  let min-status "none"
+  let range-status "none"
+
+  ask persons [
+    set status-list lput ( [status] of self ) status-list
+  ]
+
+  set max-status max status-list
+  set min-status min status-list
+  set range-status max-status - min-status
+  let lowest-status 0.0000000000000001
+  let highest-status 0.9999999999999999
+
+  ask persons [
+    set status (lowest-status + ((status - min-status) * (highest-status - lowest-status) ) / range-status )
+  ]
+
+  if debug? [
+  print status-list
+  print max-status
+  print min-status
+  print range-status
   ]
 
 
@@ -2179,7 +2296,7 @@ initial-nr-households
 initial-nr-households
 5
 5000
-25.0
+35.0
 10
 1
 NIL
@@ -2208,7 +2325,7 @@ INPUTBOX
 162
 646
 current-seed
-1.828810851E9
+5.8271232E7
 1
 0
 Number
@@ -2267,10 +2384,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-645
-612
-916
-762
+647
+610
+918
+760
 distribution of status
 NIL
 NIL
@@ -2285,10 +2402,10 @@ PENS
 "default" 0.1 1 -16777216 true "" "histogram(status-distribution)"
 
 CHOOSER
-1660
-261
-1824
-306
+8
+179
+172
+224
 meal-selection
 meal-selection
 "status-based" "majority" "random"
@@ -2331,23 +2448,8 @@ nr-friends
 nr-friends
 0
 20
-3.0
+4.0
 1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1736
-208
-1909
-241
-status-increment
-status-increment
-0
-0.1
-0.01
-0.01
 1
 NIL
 HORIZONTAL
@@ -2398,10 +2500,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1554
-209
-1729
-242
+193
+184
+368
+217
 food-outlet-service-area
 food-outlet-service-area
 20
@@ -2432,36 +2534,6 @@ PENS
 "pen-1" 1.0 0 -2064490 true "" "plot fish-stock"
 "pen-2" 1.0 0 -4079321 true "" "plot vegetarian-stock"
 "pen-3" 1.0 0 -13840069 true "" "plot vegan-stock"
-
-SLIDER
-1735
-128
-1907
-161
-lower-margin
-lower-margin
-0
-1
-0.23
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1734
-168
-1906
-201
-upper-margin
-upper-margin
-0
-1
-0.8
-0.01
-1
-NIL
-HORIZONTAL
 
 PLOT
 645
@@ -2630,8 +2702,8 @@ SWITCH
 360
 181
 393
-more-sustainable-shops?
-more-sustainable-shops?
+change-plant-protein?
+change-plant-protein?
 1
 1
 -1000
@@ -2639,13 +2711,13 @@ more-sustainable-shops?
 SLIDER
 9
 397
-181
+182
 430
-p-more-sustainable
-p-more-sustainable
-0
+p-change-plant-protein
+p-change-plant-protein
+-1
 1
-0.1
+-0.2
 0.01
 1
 NIL
@@ -2654,24 +2726,24 @@ HORIZONTAL
 SWITCH
 185
 359
-358
+363
 392
-less-animal-proteins?
-less-animal-proteins?
-1
+change-animal-protein?
+change-animal-protein?
+0
 1
 -1000
 
 SLIDER
 184
 397
-357
+372
 430
-p-less-animal-proteins
-p-less-animal-proteins
-0
+p-change-animal-protein
+p-change-animal-protein
+-1
 1
-0.12
+0.05
 0.01
 1
 NIL
@@ -2700,7 +2772,7 @@ PLOT
 459
 915
 609
-Population vs Stocks
+Population (grey) vs Stocks (blue)
 NIL
 NIL
 0.0
@@ -2715,21 +2787,11 @@ PENS
 "pen-1" 1.0 0 -7500403 true "" "plot count persons"
 
 TEXTBOX
-1558
-19
-1708
-37
-SENSITIVITY ANALYSIS
-10
-0.0
-1
-
-TEXTBOX
 12
 336
 162
 354
-Adjust product range at t = 365
+Adjust product range at t = 730
 10
 0.0
 1
@@ -2739,7 +2801,7 @@ TEXTBOX
 442
 161
 460
-Adjust diets at t = 365
+Adjust diets at t = 730
 10
 0.0
 1
@@ -2775,7 +2837,7 @@ restocking-frequency
 restocking-frequency
 1
 30
-4.0
+5.0
 1
 1
 NIL
@@ -2798,7 +2860,7 @@ SWITCH
 659
 debug?
 debug?
-1
+0
 1
 -1000
 
