@@ -100,16 +100,7 @@ food-outlets-own [
   stock-table
   no-sales-count
   business-orientation ;0 = not considering sustainability at all, 2 = considering sustainability in assortment a lot
-  opening-day
   diet-sublists-table
-  meat-list
-  meat-sublist
-  fish-list
-  fish-sublist
-  vegetarian-list
-  vegetarian-sublist
-  vegan-list
-  vegan-sublist
   complaints-from-customers
   potatoes-table
 ]
@@ -167,17 +158,11 @@ to setup-globals
   set report-saved-stock-table table:make
   set report-delta-stock-table table:make
   set business-duration-list []
-  set low-income-affordability-table table:make
-  set middle-income-affordability-table table:make
-  set high-income-affordability-table table:make
-  set diets-affordability-table table:make
   set meal-quality-variance 0.1 ;hard-coded 10% standard deviation of a cook's cooking skills
 
   foreach diets-list [ diets ->
     table:put report-sales-table diets 0
     table:put report-stock-table diets 0
-    table:put report-median-sales-table diets 0
-    table:put report-median-stock-table diets 0
     table:put report-meals-cooked-table diets 0
     table:put report-saved-meals-cooked-table diets 0
     table:put report-delta-meals-cooked-table diets 0
@@ -188,11 +173,6 @@ to setup-globals
   ]
 
       table:put report-potatoes-table "potatoes" 0
-
-  table:put diets-affordability-table "meat" 10
-  table:put diets-affordability-table "fish" 2
-  table:put diets-affordability-table "vegetarian" 3
-  table:put diets-affordability-table "vegan" 2
 
 
 end
@@ -348,16 +328,7 @@ to setup-food-outlets
     set shape "square 2"
     set color 25
     set business-orientation random-float 2
-    set opening-day 0
     set diet-sublists-table table:make
-    set meat-list []
-    set meat-sublist []
-    set fish-list []
-    set fish-sublist []
-    set vegetarian-list []
-    set vegetarian-sublist []
-    set vegan-list []
-    set vegan-sublist []
     set complaints-from-customers table:make
 
     foreach diets-list [ diets ->
@@ -439,7 +410,7 @@ to setup-food-outlets
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
-    set supermarket-changes 3
+
   ]
 
 end
@@ -451,8 +422,7 @@ end
 
 to go
 
-  if ticks = 110 [stop]
-  ;or error? = true [stop]
+  if ticks = 3650 or error? = true [stop]
 
   closure-of-tick
 
@@ -630,9 +600,7 @@ to change-plant-protein
 
    if change-plant-protein? = true [
 
-
-
-    let year-passed ticks mod
+    let year-passed ticks mod 730
     let update-shops "none"
 
       ifelse year-passed = 1 and ticks != 1 [
@@ -735,6 +703,8 @@ to change-plant-protein
       ]
 
     ]
+
+
   ]
 
 
@@ -756,7 +726,7 @@ to change-animal-protein
 
 
 
-    let year-passed ticks mod 100
+    let year-passed ticks mod 730
     let update-shops "none"
 
       ifelse year-passed = 1 and ticks != 1 [
@@ -768,6 +738,7 @@ to change-animal-protein
       [set update-shops false]
 
     if update-shops = true [
+
 
 
       let unsustainable-foods []
@@ -858,6 +829,8 @@ to change-animal-protein
       ]
 
     ]
+
+
   ]
 
 
@@ -1681,26 +1654,6 @@ to check-sales-tables ;food-outlet procedure
       )
 
       ;store the sales per day per protein source in a list for use in the restocking procedure
-
-      foreach diets-list [ diets ->
-        let sales-product table:get sales-table diets
-
-        if diets = "meat" [
-          set meat-list lput sales-product meat-list
-        ]
-        if diets = "fish" [
-          set fish-list lput sales-product fish-list
-        ]
-        if diets = "vegetarian" [
-          set vegetarian-list lput sales-product vegetarian-list
-        ]
-        if diets = "vegan" [
-          set vegan-list lput sales-product vegan-list
-        ]
-      ]
-      if debug? [
-      show (word meat-list " " fish-list " "  vegetarian-list " " vegan-list)
-      ]
 
             if debug? [
       show (word "Our diet-sublists-table before adding new sales:" diet-sublists-table)
@@ -2704,7 +2657,7 @@ SWITCH
 393
 change-plant-protein?
 change-plant-protein?
-1
+0
 1
 -1000
 
@@ -2717,7 +2670,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
--0.2
+1.0
 0.01
 1
 NIL
@@ -2730,7 +2683,7 @@ SWITCH
 392
 change-animal-protein?
 change-animal-protein?
-0
+1
 1
 -1000
 
@@ -2743,7 +2696,7 @@ p-change-animal-protein
 p-change-animal-protein
 -1
 1
-0.05
+0.01
 0.01
 1
 NIL
@@ -2836,7 +2789,7 @@ SLIDER
 restocking-frequency
 restocking-frequency
 1
-30
+12
 5.0
 1
 1
@@ -2860,7 +2813,7 @@ SWITCH
 659
 debug?
 debug?
-0
+1
 1
 -1000
 
