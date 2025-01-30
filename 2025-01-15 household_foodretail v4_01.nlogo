@@ -64,7 +64,7 @@ persons-own [
   meal-to-cook
   my-last-dinner
   last-meals-quality
-  last-meal-enjoyment
+  last-meal-enjoyment?
   my-cook
   my-dinner-guests
   network-diet-diversity
@@ -84,7 +84,7 @@ households-own [
   income-level
   id ; identifier
   members
-  meal-cooked?
+  meal-being-cooked?
   empty-house?
   diet-diversity
   vip-preference
@@ -186,28 +186,12 @@ to setup-households
     set id id-households + 1
     set id-households id-households + 1 ;each households updates the global variable id-households
                                         ;create household with members
-    set income-level first rnd:weighted-one-of-list income-levels [ [p] -> last p ]
-
-    table:put low-income-affordability-table "meat" 7.5
-    table:put low-income-affordability-table "fish" 1
-    table:put low-income-affordability-table "vegetarian" 0.5
-    table:put low-income-affordability-table "vegan" 0.1
-
-    table:put middle-income-affordability-table "meat" 5
-    table:put middle-income-affordability-table "fish" 1
-    table:put middle-income-affordability-table "vegetarian" 1.5
-    table:put middle-income-affordability-table "vegan" 1
-
-    table:put high-income-affordability-table "meat" 2.5
-    table:put high-income-affordability-table "fish" 1
-    table:put high-income-affordability-table "vegetarian" 2.5
-    table:put high-income-affordability-table "vegan" 2
 
     let new-family random-poisson 2.1 ;hard-coded mean
     let new-family-abs abs round new-family
     hatch-persons new-family-abs + 1
     set empty-house? false
-    set meal-cooked? false
+    set meal-being-cooked? false
     set diet-diversity 0
     set vip-preference "none"
 
@@ -258,7 +242,7 @@ to setup-persons
     set individualism random-float 1
     set my-last-dinner "none"
     set last-meals-quality "none"
-    set last-meal-enjoyment "none"
+    set last-meal-enjoyment? false
 
 
 
@@ -410,7 +394,12 @@ to setup-food-outlets
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
+    ifelse initial-nr-food-outlets <= 2 [
+      set supermarket-changes initial-nr-food-outlets
+    ]
+    [
     set supermarket-changes 3
+    ]
   ]
 
 end
@@ -436,7 +425,7 @@ to go
 
   ;ask cooks
   select-meal
-  to-do-groceries
+  obtain-groceries
 
   ;ask persons
   cooking
@@ -482,7 +471,7 @@ to closure-of-tick
     set my-cook "nobody"
     set cooks-cooking-skills "none"
     set last-meals-quality "none"
-    set last-meal-enjoyment "none"
+    set last-meal-enjoyment? false
     set bought? false
 
     let network-members (turtle-set self dinner-friends dinner-members) ;
@@ -498,7 +487,7 @@ to closure-of-tick
   ]
 
   ask households [
-    set meal-cooked? false
+    set meal-being-cooked? false
     set empty-house? false
     let diets-members [ (list diet) ] of members
     let unique-diets remove-duplicates diets-members
@@ -516,6 +505,7 @@ to closure-of-tick
     table:put potatoes-table "potatoes" 0
     foreach diets-list [ diets ->
       table:put sales-table diets 0
+      table:put complaints-from-customers diets 0
     ]
   ]
 
@@ -841,56 +831,83 @@ end
 
 to select-group-and-cook ;household procedure
   ask households [
-    if meal-cooked? = true [
-      error "Our household is hosting two cooks"
+    if meal-being-cooked? = true [
+      show "Our household is hosting two cooks"
+      set error? true
     ]
 
 
     ;procedure to select dinner and guests if friendships are turned on ;all household members who are todays-cook and who have friends can invite friends over for dinner
     ; if friendships? = true
 
-      let members-at-home count members with [at-home? = true]
+    let members-at-home count members with [at-home? = true]
 
-      ifelse members-at-home = 0  [
-        set empty-house? true
+    ifelse members-at-home = 0  [
+      set empty-house? true
+    ]
+
+    ;if at least 1 member is at home, cook a meal in this household
+    [
+      set empty-house? false
+    ]
+
+    ;start cooking if someone is at home
+
+    (ifelse empty-house? = true [
+      ;do not cook a meal today
       ]
 
-      ;if at least 1 member is at home, cook a meal in this household
-      [set empty-house? false]
+      empty-house? = false [
 
-      ;start cooking if someone is at home
 
-      (ifelse empty-house? = true [
-        ;do not cook a meal today
+        let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+
+
+        ;if nobody is at home (anymore), the household will decide no meals will be cooked
+
+        ifelse todays-cook = nobody [
+          ;do nothing
         ]
-
-        empty-house? = false [
-
-
-          let todays-cook one-of members with [is-cook? = false and at-home? = true] ;select cook that is at home
+        ;otherwise, proceed
+        [
 
 
-          ;if nobody is at home (anymore), the household will decide no meals will be cooked
+          let dinner-members-today members
 
-          ifelse todays-cook = nobody [
-            ;do nothing
-          ]
-          ;otherwise, proceed
-          [
+          ask todays-cook [
 
-            set meal-cooked? true
-            let todays-dinner-guests members
+            set is-cook? true
+            let p-invite-friends random-float 1
 
-            ask todays-cook [
+            ifelse p-invite-friends <= neophobia [
+              ;not inviting friends
 
-              set is-cook? true
+              if debug? [
+              show "No way, I am NOT inviting friends today"
+              ]
+              set my-dinner-guests dinner-members-today ;do not invite friends because the cook only wants to eat by himself / with family members
+              ask my-dinner-guests [
+                set my-cook todays-cook ;setting todays cook for all dinner guests
+              ]
+
+            ]
+
+            ;if p-invite-friends > neophobia, the cook will invite friends
+            [
+              if debug? [
+              show "Yes, I am inviting friends today"
+              ]
+            ]
 
               let nr-dinner-friends count friendship-neighbors with [at-home? = true and is-cook? = false]
 
 
               ;;if the cook has no friends
               ifelse nr-dinner-friends = 0 [
-                set my-dinner-guests todays-dinner-guests ;do not invite friends because I do not have any
+                set my-dinner-guests dinner-members-today ;do not invite friends because I do not have any available friends today
+              if debug? [
+                show (word "I cannot invite friends today, all of them are occupied, or I don't have any friends, it's just me (and my family) " my-dinner-guests)
+                 ]
               ]
 
               ;;if the cook does have friends
@@ -898,28 +915,40 @@ to select-group-and-cook ;household procedure
               [
 
                 let dinner-friends-today friendship-neighbors with [at-home? = true and is-cook? = false] ;only invite friends who are still at home and do not have to cook for their own household
+
+                if debug? [
+                show dinner-friends-today
+                 ]
                 ask dinner-friends-today [
                   set at-home? false
                   move-to patch-here
                 ]
 
-                let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false]
+                ;let dinner-members-today family-membership-neighbors with [at-home? = true and is-cook? = false] -> Could be necessary if persons in the turtle set dinner-members-today have been claimed by cooks in other households
                 set my-dinner-guests (turtle-set dinner-members-today dinner-friends-today self)
+                 if debug? [
+                show (word "My dinner guests, friends and family " my-dinner-guests " " dinner-members-today " " dinner-friends-today " " self)
+              ]
 
               ]
 
               ask my-dinner-guests [
-                set my-cook todays-cook ;setting todays cook for all dinner-group members
+                set my-cook todays-cook ;setting todays cook for all dinner guests
 
               ]
-
             ]
+
           ]
+        set meal-being-cooked? true
         ]
 
-        ;if something went wrong
-        [show "I do not know if there's anyone in me"]
-      )
+
+
+
+
+      ;if something went wrong
+      [show "I do not know if there's anyone in me"]
+    )
 
 
 
@@ -930,10 +959,16 @@ to select-group-and-cook ;household procedure
 
   ask persons with [is-cook? = true] [
     let nr-of-dinner-guests count my-dinner-guests
+
+    if debug? [
+    show (word "My number of dinner guests " nr-of-dinner-guests " and my guests " my-dinner-guests)
+     ]
+
     if nr-of-dinner-guests = 0 [
-      error "I have an empty guest list!"
+      show "I have an empty guest list!"
     ]
   ]
+
 end
 
 ;;; MEAL SELECTION ;;;
@@ -1001,7 +1036,7 @@ to majority-based-meal-selection
 
   ]
 
-  set meal-to-cook item 0 first shopping-list   ;cook decides what type of meal to prepare
+  set meal-to-cook item 0 one-of shopping-list   ;cook decides what type of meal to prepare
 
 end
 
@@ -1020,7 +1055,7 @@ end
 
 ;;; START OF GETTING GROCERIES ;;;
 
-to to-do-groceries
+to obtain-groceries
 
   ask persons with [is-cook? = true] [
 
@@ -1235,15 +1270,22 @@ to get-alternative-groceries ;this procedure takes place in the supermarket wher
   if debug? [
     show (word "get alternative groceries I cannot buy ANY protein source here for " nr-dinner-guests " at " my-supermarket)
   ]
+
+    let protein-complaint one-of alternative-shopping-list
+      if debug? [
+    show (word "get alternative groceries I am complaining about // "nr-dinner-guests " "  protein-complaint  " \\but I could have complained about all these: " alternative-shopping-list)
+  ]
+
   ask my-supermarket [
-    foreach alternative-shopping-list [protein -> ;this way the cook files a complaint about each of the protein sources that the supermarket offers, not just one, while he might need only one.
-      let current-nr-complaints table:get complaints-from-customers protein
-      table:put complaints-from-customers protein (current-nr-complaints + nr-dinner-guests)
-    ]
-    if debug? [
+
+      let current-nr-complaints table:get complaints-from-customers protein-complaint
+      table:put complaints-from-customers protein-complaint (current-nr-complaints + nr-dinner-guests)
+          if debug? [
       show (word "Complaints we have received so far: " complaints-from-customers)
     ]
-  ]
+    ]
+
+
   set meal-to-cook "potatoes"
   set basket-full? true
   if debug? [
@@ -1419,9 +1461,9 @@ to set-meal-evaluation
           ;print (list who last-meals-quality is-cook?)
 
           (ifelse last-meals-quality < 0.55 [ ;hard-coded value for a sufficient mark in The Netherlands, 5.5
-            set last-meal-enjoyment "negative"
+            set last-meal-enjoyment? false ;technically not resetting but reinforcing as it is a boolean
           ] last-meals-quality >= 0.55 [
-            set last-meal-enjoyment "positive"
+            set last-meal-enjoyment? true
           ] [
             ;if no meal evaluation took place
             show "I did not evaluate the meal I just had!"
@@ -1437,7 +1479,7 @@ to update-diet-preference
 
   ask persons [
 
-    ifelse last-meal-enjoyment = "positive" and my-last-dinner != "potatoes" [
+    ifelse last-meal-enjoyment? = true and my-last-dinner != "potatoes" [
 
       ;update table with meal enjoyments for each type of diet based on neophobia
       let current-meal-enjoyment table:get meal-enjoyment-table my-last-dinner
@@ -1446,7 +1488,7 @@ to update-diet-preference
       table:put meal-enjoyment-table my-last-dinner new-meal-enjoyment
     ] [
 
-      ifelse last-meal-enjoyment = "negative" and my-last-dinner != "potatoes" [
+      ifelse last-meal-enjoyment? = false and my-last-dinner != "potatoes" [
         ;update table with meal enjoyments for each type of diet based on neophobia
         let current-meal-enjoyment table:get meal-enjoyment-table my-last-dinner
         let new-meal-enjoyment current-meal-enjoyment - ( ( last-meals-quality * (1 - neophobia) ) / 100 ) ;add a multiplication of last meal's quality and the neophobia, here a low neophobia leads to a larger increment in meal enjoyment
@@ -1511,14 +1553,14 @@ to evaluate-meal
       ]
       ]
 
-      my-status > status-of-my-cook and last-meal-enjoyment = "positive" [
+      my-status > status-of-my-cook and last-meal-enjoyment? = true [
         ask my-cook [
           ;print "my status is being increased because my dinner guests liked what I cooked for them"
           set status min (list 1 (status + status-change))
         ]
       ]
 
-      my-status > status-of-my-cook and last-meal-enjoyment = "negative" [
+      my-status > status-of-my-cook and last-meal-enjoyment? = false [
         ask my-cook [
           ;print ("my status is being reduced because my dinner guests did not like the meal I cooked for them"
           set status max (list 0 (status - status-change)) ;if the cook has lower status than myself and I don't like the meal, I will say so
@@ -1543,16 +1585,16 @@ to evaluate-meal
       let delta-status abs (my-status - cooks-status)
       let status-change delta-status * 0.01
 
-      (ifelse last-meal-enjoyment = "positive" [
+      (ifelse last-meal-enjoyment? = true [
         set status (status + status-change)
         ]
 
-        last-meal-enjoyment = "negative" and cooks-status > my-status [
+        last-meal-enjoyment? = false and cooks-status > my-status [
           ;print "my status is being reduced because I did not like the meal"
           set status (status - status-change)
         ]
 
-        last-meal-enjoyment = "negative" and (cooks-status < my-status or cooks-status = my-status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
+        last-meal-enjoyment? = false and (cooks-status < my-status or cooks-status = my-status) [ ;when the cooks status is lower or similar to that of the guests and the experience is negative, the cook will still give status
                                                                                                       ;print "my status is being increased because I am considered important by the cook"
           set status (status + status-change)
         ]
@@ -1661,14 +1703,30 @@ to check-sales-tables ;food-outlet procedure
 
       ;store each sales-list in the diet-sublists-table for use in the restocking procedure
       foreach diets-list [ diets ->
-      let sales-product table:get sales-table diets
-        let current-sales-list table:get diet-sublists-table diets
-        table:put diet-sublists-table diets ( lput sales-product current-sales-list)
-    ]
-    if debug? [
+        let today-sales table:get sales-table diets ;sales of today
+        if debug? [
+          show (word "This is today's sales of: " diets " " today-sales)
+        ]
+
+        let forever-sales-list table:get diet-sublists-table diets ;sales of previous days
+        if debug? [
+          show (word "This is total forever saleslist  of: " diets " " forever-sales-list)
+        ]
+
+        ;let forever-sales first forever-sales-list show word "This is total forever sales of: " diets " " forever-sales
+
+        let nr-complaints table:get complaints-from-customers diets ;complaints of today, should be added to today-sales
+
+        let total-current-sales today-sales + nr-complaints
+
+        table:put diet-sublists-table diets (lput total-current-sales forever-sales-list )]
+
+       if debug? [
        show (word "Our diet-sublists-table after adding new sales:" diet-sublists-table)
       ]
+
     ]
+
 
     ;if supply-demand = "infinite stock" food outlets do not need to check their sales
     [
@@ -1676,6 +1734,9 @@ to check-sales-tables ;food-outlet procedure
       show "People eat from heaven, no need to check my sales"
       ]
     ]
+
+
+
   ]
 
 
@@ -1746,9 +1807,6 @@ to check-restocking-tables
 
 
 
-          ;add the complaints filed to the sales list, representing missed sales (and forced people in this model to eat potatoes)
-          let nr-complaints table:get complaints-from-customers diets
-          set restocking-purpose-sales-list fput nr-complaints restocking-purpose-sales-list
 
 
           ;take the mean sales since the last restocking day
@@ -2248,8 +2306,8 @@ SLIDER
 initial-nr-households
 initial-nr-households
 5
-5000
-35.0
+14250
+45.0
 10
 1
 NIL
@@ -2278,7 +2336,7 @@ INPUTBOX
 162
 646
 current-seed
-5.8271232E7
+-1.687744956E9
 1
 0
 Number
@@ -2290,7 +2348,7 @@ SWITCH
 620
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -2400,7 +2458,7 @@ SLIDER
 nr-friends
 nr-friends
 0
-20
+15
 4.0
 1
 1
@@ -2445,8 +2503,8 @@ SLIDER
 initial-nr-food-outlets
 initial-nr-food-outlets
 3
-30
-6.0
+23
+3.0
 1
 1
 NIL
@@ -2611,7 +2669,7 @@ CHOOSER
 549
 diet-influencers
 diet-influencers
-"none" "random" "high-status" "low-status"
+"random" "high-status" "low-status"
 0
 
 SLIDER
@@ -2790,7 +2848,7 @@ restocking-frequency
 restocking-frequency
 1
 12
-5.0
+3.0
 1
 1
 NIL
