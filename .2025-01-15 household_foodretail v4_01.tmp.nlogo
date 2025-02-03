@@ -1497,7 +1497,7 @@ to update-diet-preference
       ]
 
       ;if my-last-dinner = "potatoes"
-      [show (word "We poor people in household "h-id " had to eat potatoes, grr")]
+      [show  "We poor people in household "h-id " had to eat potatoes, grr"]
 
     ]
 
@@ -2307,7 +2307,7 @@ initial-nr-households
 initial-nr-households
 5
 14250
-5.0
+45.0
 10
 1
 NIL
@@ -2336,7 +2336,7 @@ INPUTBOX
 162
 646
 current-seed
-2.68353271E8
+-5.32776266E8
 1
 0
 Number
@@ -2348,7 +2348,7 @@ SWITCH
 620
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -2519,7 +2519,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-40.0
+30.0
 5
 1
 NIL
@@ -2715,7 +2715,7 @@ SWITCH
 393
 change-plant-protein?
 change-plant-protein?
-1
+0
 1
 -1000
 
@@ -2728,7 +2728,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
-0.18
+1.0
 0.01
 1
 NIL
@@ -2871,7 +2871,7 @@ SWITCH
 659
 debug?
 debug?
-0
+1
 1
 -1000
 
