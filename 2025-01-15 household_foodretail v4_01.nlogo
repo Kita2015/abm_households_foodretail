@@ -62,6 +62,7 @@ persons-own [
   dinner-members
   shopping-list
   meal-to-cook
+  failed-meal
   my-last-dinner
   last-meals-quality
   last-meal-enjoyment?
@@ -134,11 +135,11 @@ end
 
 to setup-globals
 
-  set weighted-diets-list (list (list "meat" 0.94 ) (list  "fish" 0.02 ) (list "vegetarian" 0.02 ) (list "vegan" 0.02 )) ;hard-coded values of dietary identities in the Netherlands
+  set weighted-diets-list (list (list "meat" 95.1 ) (list  "fish" 1.7 ) (list "vegetarian" 2.6 ) (list "vegan" 0.04 )) ;hard-coded values of dietary identities in the Netherlands
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
   set income-levels-list (list "low" "middle" "high")
-  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) ) ;hard-coded random values, should be based on real data
+  set product-list (list (list "meat" 7) (list "fish" 6) (list "vegetarian" 5) (list "vegan" 1) ) ;hard-coded values based on a report of ready-meals
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -235,6 +236,7 @@ to setup-persons
     set is-cook? false
     set shopping-list []
     set meal-to-cook "none"
+    set failed-meal "none"
     set cooking-skills random-float 1
     set status random-float 1
     ;set status 0.5
@@ -307,6 +309,7 @@ end
 
 to setup-food-outlets
   create-food-outlets initial-nr-food-outlets
+
   ask food-outlets [
     move-to one-of patches with [not any? turtles-here]
     set shape "square 2"
@@ -329,6 +332,12 @@ to setup-food-outlets
 
     ;food-outlet counts number of persons in certain radius
     set potential-costumers count persons in-radius food-outlet-service-area
+
+    set initial-stock-table table:make
+    set sales-table table:make
+    set stock-table table:make
+
+    ifelse initial-equal? = "equal" [
 
     ;set size based on fraction of population served
     let nr-products "none"
@@ -364,9 +373,7 @@ to setup-food-outlets
 
     ;food outlets determine for each product in their product-selection, how much of this product is in stock at the start of the model run
 
-    set initial-stock-table table:make
-    set sales-table table:make
-    set stock-table table:make
+
 
 
       foreach diets-list [ diets ->
@@ -390,6 +397,44 @@ to setup-food-outlets
     set label (list potential-costumers product-selection)
 
   ]
+
+    ;if initial-equal? = "stats"
+    [
+      ;provide each food outlet with a stock based on the distribution of diets in the population
+      ;divide the potential-costumers over the 4 protein sources, + 20% safety stock
+
+      ; Initialize a initial stock table
+
+      ; Count potential customers in range of the food outlet
+      let potential-customers count persons in-radius food-outlet-service-area
+
+      ; Distribute potential customers based on weighted-diets-list
+      foreach product-list [ diet-weight-pair ->
+        let diet-type first diet-weight-pair  ; Extract diet name (e.g., "meat")
+        let weight last diet-weight-pair      ; Extract weight value
+        let estimated-customers round (potential-customers * weight + (potential-customers * weight * 0.5))  ; set stock including 20% safety stock
+
+        ; Store result in table
+        table:put initial-stock-table diet-type estimated-customers
+      ]
+
+      ; Show the table to verify
+      ;if debug? [
+      show initial-stock-table
+      ;]
+
+      foreach diets-list [ diets ->
+        table:put sales-table diets 0
+        table:put stock-table diets table:get initial-stock-table diets
+      ]
+      set no-sales-count 0
+      set product-selection diets-list
+      set label (list potential-costumers product-selection)
+
+
+    ]
+  ]
+
 
 
   ask persons [
@@ -466,6 +511,7 @@ to closure-of-tick
   ask persons [
     set shopping-list []
     set meal-to-cook "none"
+    set failed-meal "none"
     set is-cook? false
     set my-dinner-guests "nobody"
     set my-cook "nobody"
@@ -584,6 +630,11 @@ to change-plant-protein
   ask food-outlets [
 
    ifelse change-plant-protein? = true and ticks = 730 [
+
+      if debug? [
+      show (word "Changing plant protein stock! at tick " ticks)
+      ]
+
       let sustainable-foods []
         set sustainable-foods (list "vegan")
 
@@ -596,36 +647,48 @@ to change-plant-protein
 
             ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
             let assortment-change (business-orientation * potential-costumers * p-change-plant-protein)
+
+            if debug? [
+              show (word "before change plant proteins if current stock = 0, our initial stock table " initial-stock-table)
+            ]
             table:put initial-stock-table food-item round assortment-change
+
             table:put stock-table food-item table:get initial-stock-table food-item
 
             if debug? [
-              show (word "after change plant proteins if current stock = 0, tick" ticks initial-stock-table)
+              show (word "after change plant proteins if current stock = 0, our new initial stock table "  initial-stock-table)
             ]
           ]
 
 
 
-          if current-stock = 0 and p-change-plant-protein < 0 [
+        if current-stock = 0 and p-change-plant-protein < 0 [
 
-            ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
-            ;do nothing
+          ;if the food outlet did not sell vegetarian and vegan before it will still not reduce selling these products.
+          ;do nothing
+        ]
+
+
+        if current-stock != 0
+        [
+          ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+
+          if debug? [
+            show (word "before change plant proteins if current stock != 0, our initial stock table " initial-stock-table)
           ]
 
-
-            if current-stock != 0
-            [
-              ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
-              let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
-              show (word food-item " assortment-change " assortment-change)
-              let new-assortment (current-stock + assortment-change)
-              ifelse new-assortment > 0 [
-                table:put initial-stock-table food-item new-assortment
-                table:put stock-table food-item table:get initial-stock-table food-item
-                if debug? [
-                show (word "after change plant proteins if we sold vega(n) before, tick" ticks initial-stock-table)
-                ]
-              ]
+          let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
+          if debug? [
+          show (word food-item " change plant protein assortment-change " assortment-change)
+          ]
+          let new-assortment (current-stock + assortment-change)
+          ifelse new-assortment > 0 [
+            table:put initial-stock-table food-item new-assortment
+            table:put stock-table food-item table:get initial-stock-table food-item
+            if debug? [
+              show (word "after change plant proteins if we sold vega(n) before, our new initial stock table" initial-stock-table)
+            ]
+          ]
 
 
               ;if new-assortment < 0 ;the product will be set to 0, meaning it is not available
@@ -633,7 +696,7 @@ to change-plant-protein
                 table:put initial-stock-table food-item 0
                 table:put stock-table food-item 0
                 if debug? [
-                show (word "after change plant proteins preventing negative stock, tick" ticks initial-stock-table)
+                show (word "after change plant proteins preventing negative stock, our initial stock table "  initial-stock-table)
                 ]
               ]
 
@@ -716,7 +779,9 @@ to change-animal-protein
             [
               ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
               let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
-              show (word food-item " assortment-change " assortment-change)
+          if debug? [
+              show (word food-item " change animal protein assortment-change " assortment-change)
+          ]
               let new-assortment (current-stock + assortment-change)
               ifelse new-assortment > 0 [
                 table:put initial-stock-table food-item new-assortment
@@ -829,7 +894,7 @@ to select-group-and-cook ;household procedure
               ;not inviting friends
 
               if debug? [
-              show "No way, I am NOT inviting friends today"
+              show (word "No way, I am NOT inviting friends today at tick = " ticks)
               ]
               set my-dinner-guests dinner-members-today ;do not invite friends because the cook only wants to eat by himself / with family members
               ask my-dinner-guests [
@@ -841,7 +906,7 @@ to select-group-and-cook ;household procedure
             ;if p-invite-friends > neophobia, the cook will invite friends
             [
               if debug? [
-              show "Yes, I am inviting friends today"
+              show (word "Yes, I am inviting friends today at tick = " ticks)
               ]
             ]
 
@@ -852,7 +917,7 @@ to select-group-and-cook ;household procedure
               ifelse nr-dinner-friends = 0 [
                 set my-dinner-guests dinner-members-today ;do not invite friends because I do not have any available friends today
               if debug? [
-                show (word "I cannot invite friends today, all of them are occupied, or I don't have any friends, it's just me (and my family) " my-dinner-guests)
+                show (word "I cannot invite friends today, all of them are occupied, or I don't have any friends, it's just me (and my family) " my-dinner-guests " at tick = " ticks)
                  ]
               ]
 
@@ -1004,25 +1069,32 @@ end
 to obtain-groceries
 
   ask persons with [is-cook? = true] [
+    if debug? [
+    show (word "Starting groceries! at tick = " ticks)
+    ]
 
-
+      while [bought? = false ]
+    [
 
     ifelse supply-demand = "static-restocking" or supply-demand = "dynamic-restocking" [
 
+
+
       ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket = "none" and basket-full? = false and bought? = false] [
         if debug? [
-        show "start groceries I am selecting my supermarket"
+        show "obtain groceries I am selecting my supermarket"
         ]
+
         ifelse supermarket-changes >= 1 and supermarket-changes <= 3 [ ;so supermarket changes is 1,2 or 3
           if debug? [
-          show (word "to do groceries My supermarket changes are: " supermarket-changes)
+          show (word "obtain My supermarket changes are: " supermarket-changes)
           ]
           select-supermarket ;if the cook cannot change supermarket, he is referred to get-alternative-groceries
         ]
         ;if the cook is at his last supermarket
         [
           if debug? [
-            show "start groceries No more supermarkets to try; looking for alternative groceries"
+            show "obtain groceries No more supermarkets to try; looking for alternative groceries"
           ]
           get-alternative-groceries]
 
@@ -1030,7 +1102,7 @@ to obtain-groceries
 
       ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket != "none" and basket-full? = false and bought? = false] [
         if debug? [
-          show (word "start-groceries I am getting groceries at: " my-supermarket)
+          show (word " obtain groceries I am getting groceries at: " my-supermarket)
         ]
         get-groceries
       ]
@@ -1038,22 +1110,28 @@ to obtain-groceries
 
       ask persons with [is-cook? = true and meal-to-cook != "none" and my-supermarket != "none" and basket-full? = true and bought? = false] [
         if debug? [
-          show (word "start groceries My basket is full and I am checking out, buying: " meal-to-cook)
+          show (word "obtain groceries My basket is full: " basket-full? " and I am checking out, buying: " meal-to-cook)
         ]
         check-out-groceries
       ]
 
-    ]
 
-    ;if supply-demand = "infinite-stock"
-    [
-      if debug? [
-        show "start-groceries Skipping groceries, we eat from heaven (The model simulates household interaction only.)"
+
+
       ]
-      set bought? true
-    ]
 
+      ;if supply-demand = "infinite-stock"
+      [
+        if debug? [
+          show "obtain groceries Skipping groceries, we eat from heaven (The model simulates household interaction only.)"
+        ]
+        set bought? true
+      ]
+    ]
   ]
+
+
+
 
 end
 
@@ -1117,7 +1195,7 @@ to get-groceries
 
   if not available? or stock-sufficient? = false [
     if debug? [
-    show (word "get groceries My product is NOT available: " meal-to-cook " at " my-supermarket)
+    show (word "get groceries My product is NOT sufficiently available: " nr-dinner-guests " of " meal-to-cook " at " my-supermarket)
     ]
     ifelse neophobic? = false [
     if debug? [
@@ -1218,9 +1296,10 @@ to get-alternative-groceries ;this procedure takes place in the supermarket wher
   ]
 
     let protein-complaint one-of alternative-shopping-list
-      if debug? [
-    show (word "get alternative groceries I am complaining about // "nr-dinner-guests " "  protein-complaint  " \\but I could have complained about all these: " alternative-shopping-list)
-  ]
+    set failed-meal protein-complaint
+      ;if debug? [
+    show (word "get alternative groceries I am complaining about // "nr-dinner-guests " "  protein-complaint  " at " my-supermarket " \\but I could have complained about all these: " alternative-shopping-list)
+  ;]
 
   ask my-supermarket [
 
@@ -1378,9 +1457,9 @@ to cooking
   ]
 
   ask persons with [is-cook? = true and bought? = false] [
-     if debug? [
+     ;if debug? [
    show "I did not buy anything, haha!"
-    ]
+    ;]
   ]
 
 end
@@ -1443,8 +1522,9 @@ to update-diet-preference
       ]
 
       ;if my-last-dinner = "potatoes"
-      [show (word "We poor people in household "h-id " had to eat potatoes, grr")]
-
+      ;if debug? [
+      [show (word "We poor people in household "h-id " had to eat potatoes, grr at " ticks)]
+      ;]
     ]
 
     ;update dietary preference, if necessary
@@ -1608,6 +1688,7 @@ to check-sales-tables ;food-outlet procedure
         show (word "check-sales-table This is our sales of: " diets " : " sales-product )
         ]
         set total-sales total-sales + sales-product
+
       ]
 
       (ifelse total-sales = 0 [
@@ -1691,6 +1772,7 @@ end
 to check-restocking-tables
 
   ask food-outlets [
+
     if debug? [
       show (word "Supply-demand: " supply-demand " Stock-table at the start of procedure: " stock-table)
     ]
@@ -1719,7 +1801,8 @@ to check-restocking-tables
         let check-stock table:get stock-table diets
         if check-stock < 0 [
           if debug? [
-            show (word "check-restock-tables We have gone surreal, our stock of " diets " has become negative: " check-stock)
+            show (word "check-restock-tables We have gone surreal, our stock of " diets " has become negative: " check-stock " at tick " ticks)
+
 
           ]
          set error? true
@@ -1730,11 +1813,29 @@ to check-restocking-tables
       let restocking-time ticks mod restocking-frequency
 
       if restocking-time != 0 and ticks != 0 [
+
+        ;check if stocks have reached 0 already, if so, halt the run
+        foreach diets-list [ diets ->
+          let initial-stock table:get initial-stock-table diets
+          let current-stock table:get stock-table diets
+          if current-stock = 0 and initial-stock != 0 [
+            ;if debug? [
+              show (word "check-restock-tables We have run out of " diets " at tick " ticks)
+
+            ;]
+            set error? true
+          ]
+        ]
+
+
         ;do nothing, it is not restocking day
       ]
 
       if restocking-time = 0 and ticks != 0 [
         ;it is restocking day!
+        if debug? [
+        show (word "It is restocking day! at " ticks)
+        ]
 
         ;retrieve the sales-lists from diet-sublists-table and update the stock accordingly
 
@@ -1747,7 +1848,7 @@ to check-restocking-tables
           let current-sales-list table:get diet-sublists-table diets
           let restocking-purpose-sales-list sublist current-sales-list (length current-sales-list - restocking-frequency) length current-sales-list
           if debug? [
-            show (word "current-sales-list " current-sales-list " restocking-purpose-sales-list " restocking-purpose-sales-list)
+            show (word "current-sales-list for: " diets " " current-sales-list " restocking-purpose-sales-list " restocking-purpose-sales-list)
           ]
 
 
@@ -1758,12 +1859,16 @@ to check-restocking-tables
           ;take the mean sales since the last restocking day
           let mean-sublist mean restocking-purpose-sales-list
           if debug? [
-            show (word "our mean sales of: " diets " " mean-sublist)
+            show (word "our mean sales of: " diets " " mean-sublist " at tick " ticks)
           ]
 
           ;update the stock using the mean and taking into account a safety stock of 20%
+          let current-stock table:get stock-table diets
+          if debug? [
+            show (word "check-restocking-table This is the current stock of " diets  " : " current-stock)
+          ]
 
-          table:put stock-table diets round ( (mean-sublist + (mean-sublist * 0.2)) * restocking-frequency )
+          table:put stock-table diets round ( current-stock + ( ( mean-sublist + (mean-sublist * 0) ) * restocking-frequency ) )
 
         ]
 
@@ -2253,7 +2358,7 @@ initial-nr-households
 initial-nr-households
 5
 14250
-55.0
+105.0
 10
 1
 NIL
@@ -2282,7 +2387,7 @@ INPUTBOX
 162
 646
 current-seed
-2.68353271E8
+2.16330836E8
 1
 0
 Number
@@ -2294,7 +2399,7 @@ SWITCH
 620
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -2405,7 +2510,7 @@ nr-friends
 nr-friends
 0
 15
-4.0
+1.0
 1
 1
 NIL
@@ -2450,7 +2555,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 3
 23
-3.0
+6.0
 1
 1
 NIL
@@ -2687,7 +2792,7 @@ SWITCH
 392
 change-animal-protein?
 change-animal-protein?
-1
+0
 1
 -1000
 
@@ -2700,7 +2805,7 @@ p-change-animal-protein
 p-change-animal-protein
 -1
 1
--0.08
+-1.0
 0.01
 1
 NIL
@@ -2820,6 +2925,16 @@ debug?
 1
 1
 -1000
+
+CHOOSER
+181
+268
+319
+313
+initial-equal?
+initial-equal?
+"equal" "stats"
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
