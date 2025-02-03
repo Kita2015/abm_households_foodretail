@@ -524,60 +524,55 @@ end
 
 to influence-diets
 
-  if influencers? = true [
+  ifelse influencers? = true and ticks = 730 [
 
-    if ticks = 365 [
-
-
-      (ifelse diet-influencers = "none" [
-        ;do nothing
-        ]
-
-        diet-influencers = "random" [
+      (ifelse influencers = "random" [
 
           let count-persons count persons
           let nr-influencers p-influencers * count-persons
-          let influencers n-of nr-influencers persons
+          let influencers-group n-of nr-influencers persons
 
 
-          ask influencers [set diet influencers-diet]
+          ask influencers-group [set diet influencers-diet]
 
-          set diet-influencers "none"
+
 
         ]
 
-        diet-influencers = "low-status" [
+        influencers = "low-status" [
 
           let low-status-persons persons with [status <= 0.25]
 
           let count-low-status-persons count low-status-persons
           let nr-influencers p-influencers * count-low-status-persons
-          let influencers n-of nr-influencers low-status-persons
+          let influencers-group n-of nr-influencers low-status-persons
 
 
-          ask influencers [set diet influencers-diet]
+          ask influencers-group [set diet influencers-diet]
 
-          set diet-influencers "none"
+
         ]
 
 
 
-        diet-influencers = "high-status" [
+        influencers = "high-status" [
           let high-status-persons persons with [status >= 0.75]
           let count-high-status-persons count high-status-persons
           let nr-influencers p-influencers * count-high-status-persons
-          let influencers n-of nr-influencers high-status-persons
+          let influencers-group n-of nr-influencers high-status-persons
 
-          ask influencers [set diet influencers-diet]
+          ask influencers-group [set diet influencers-diet]
 
-          set diet-influencers "none"
         ]
 
         ;if something goes wrong
         [print "The model was not able to use influencers to change dietary preference of part of the population"]
       )
-    ]
 
+  ]
+  ;if influencers = true but ticks != 730, we are not changing diets
+  [
+    ;do nothing
   ]
 
 
@@ -588,37 +583,16 @@ to change-plant-protein
 
   ask food-outlets [
 
-   if change-plant-protein? = true [
-
-    let year-passed ticks mod 730
-    let update-shops "none"
-
-      ifelse year-passed = 1 and ticks != 1 [
-        set update-shops true
-         if debug? [
-        show (word "before more plant proteins, tick" ticks initial-stock-table)
-        ]
-      ]
-      ;if two years have not passed yet
-      [set update-shops false]
-
-    if update-shops = true [
-
-
+   ifelse change-plant-protein? = true and ticks = 730 [
       let sustainable-foods []
-
-
-
         set sustainable-foods (list "vegan")
-        ;if debug? [
 
-        ;]
         ;update sustainable stocks
         foreach sustainable-foods [ food-item ->
 
           let current-stock table:get initial-stock-table food-item
 
-          ifelse current-stock = 0 and p-change-plant-protein > 0 [
+          if current-stock = 0 and p-change-plant-protein > 0 [
 
             ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
             let assortment-change (business-orientation * potential-costumers * p-change-plant-protein)
@@ -629,16 +603,17 @@ to change-plant-protein
               show (word "after change plant proteins if current stock = 0, tick" ticks initial-stock-table)
             ]
           ]
-          [
 
-          ifelse current-stock = 0 and p-change-plant-protein < 0 [
+
+
+          if current-stock = 0 and p-change-plant-protein < 0 [
 
             ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
             ;do nothing
           ]
 
 
-            ;ifelse current-stock != 0
+            if current-stock != 0
             [
               ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
               let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
@@ -652,7 +627,8 @@ to change-plant-protein
                 ]
               ]
 
-              ;ifelse new-assortment < 0 the product will be set to 0, meaning it is not available
+
+              ;if new-assortment < 0 ;the product will be set to 0, meaning it is not available
               [
                 table:put initial-stock-table food-item 0
                 table:put stock-table food-item 0
@@ -662,40 +638,39 @@ to change-plant-protein
               ]
 
             ]
-          ]
 
 
 
+      ;update labels of food outlet
+
+      let current-product-selection []
+      foreach diets-list [ diets ->
+        let current-availability table:get stock-table diets
+
+        ifelse current-availability != 0 [
+          set current-product-selection lput diets current-product-selection
         ]
-
-        ;update labels of food outlet
-       ask food-outlets [
-
-          let current-product-selection []
-          foreach diets-list [ diets ->
-            let current-availability table:get stock-table diets
-
-            ifelse current-availability != 0 [
-              set current-product-selection lput diets current-product-selection
-            ]
-            ;if the product is not offered
-            [
-              ;do nothing
-            ]
-          ]
-
-          set label (list potential-costumers current-product-selection)
-
-
+        ;if the product is not offered
+        [
+          ;do nothing
         ]
-
-
       ]
 
+        set label (list potential-costumers current-product-selection)
+      ]
     ]
+
+      ;if ticks != 730, do nothing
+      [
+        ;do nothing, we are not changing the assortment
+      ]
+
 
 
   ]
+
+
+
 
 
 
@@ -704,47 +679,20 @@ end
 
 to change-animal-protein
 
-
-
-      ;if a food outlet already sells vegetarian and vegan
-
-      ;check product selection of food outlet
-
   ask food-outlets [
 
-   if change-animal-protein? = true [
-
-
-
-    let year-passed ticks mod 730
-    let update-shops "none"
-
-      ifelse year-passed = 1 and ticks != 1 [
-        set update-shops true
-          print "Changing animal-based assortment"
-        show (word "before more animal proteins, tick" ticks initial-stock-table)
-      ]
-      ;if two years have not passed yet
-      [set update-shops false]
-
-    if update-shops = true [
-
-
+   ifelse change-animal-protein? = true and ticks = 730 [
 
       let unsustainable-foods []
 
+      set unsustainable-foods (list "meat" "fish" "vegetarian")
 
-
-        set unsustainable-foods (list "meat" "fish" "vegetarian")
-        ;if debug? [
-
-        ;]
         ;update sustainable stocks
         foreach unsustainable-foods [ food-item ->
 
           let current-stock table:get initial-stock-table food-item
 
-          ifelse current-stock = 0 and p-change-animal-protein > 0 [
+          if current-stock = 0 and p-change-animal-protein > 0 [
 
             ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
             let assortment-change (business-orientation * potential-costumers * p-change-animal-protein)
@@ -755,16 +703,16 @@ to change-animal-protein
               show (word "after change animal proteins if current stock = 0, tick" ticks initial-stock-table)
             ;]
           ]
-          [
 
-          ifelse current-stock = 0 and p-change-animal-protein < 0 [
+
+          if current-stock = 0 and p-change-animal-protein < 0 [
 
             ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
             ;do nothing
           ]
 
 
-            ;ifelse current-stock != 0
+            if current-stock != 0
             [
               ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
               let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
@@ -773,18 +721,18 @@ to change-animal-protein
               ifelse new-assortment > 0 [
                 table:put initial-stock-table food-item new-assortment
                 table:put stock-table food-item table:get initial-stock-table food-item
-                ;if debug? [
+                if debug? [
                 show (word "after change animal proteins if we sold vega(n) before, tick" ticks initial-stock-table)
-                ;]
+                ]
               ]
 
               ;ifelse new-assortment < 0 the product will be set to 0, meaning it is not available
               [
                 table:put initial-stock-table food-item 0
                 table:put stock-table food-item 0
-                ;if debug? [
+                if debug? [
                 show (word "after change animal proteins preventing negative stock, tick" ticks initial-stock-table)
-                ;]
+                ]
               ]
 
             ]
@@ -792,10 +740,9 @@ to change-animal-protein
 
 
 
-        ]
+
 
         ;update labels of food outlet
-       ask food-outlets [
 
           let current-product-selection []
           foreach diets-list [ diets ->
@@ -809,18 +756,17 @@ to change-animal-protein
               ;do nothing
             ]
           ]
-          show (word "changing label to " current-product-selection)
-          set label (list potential-costumers current-product-selection)
-
-
+        if debug? [
+        show (word "changing label to " current-product-selection)
         ]
 
-
-      ]
+          set label (list potential-costumers current-product-selection)
 
     ]
-
-
+    ;if ticks != 730, we are not changing the assortment
+    [
+      ;do nothing
+    ]
   ]
 
 
@@ -2307,7 +2253,7 @@ initial-nr-households
 initial-nr-households
 5
 14250
-5.0
+55.0
 10
 1
 NIL
@@ -2667,8 +2613,8 @@ CHOOSER
 504
 147
 549
-diet-influencers
-diet-influencers
+influencers
+influencers
 "random" "high-status" "low-status"
 0
 
@@ -2715,7 +2661,7 @@ SWITCH
 393
 change-plant-protein?
 change-plant-protein?
-1
+0
 1
 -1000
 
@@ -2728,7 +2674,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
-0.18
+0.25
 0.01
 1
 NIL
@@ -2754,7 +2700,7 @@ p-change-animal-protein
 p-change-animal-protein
 -1
 1
-0.01
+-0.08
 0.01
 1
 NIL
@@ -2871,7 +2817,7 @@ SWITCH
 659
 debug?
 debug?
-0
+1
 1
 -1000
 
