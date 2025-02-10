@@ -1,4 +1,4 @@
-;; version 4.01 ;;
+;; version 4.2 ;;
 
 extensions [ rnd table ]
 
@@ -28,6 +28,8 @@ globals [
   cooked-vegetarian
   cooked-vegan
   total-no-sales-count
+  empty-shelves
+  empty-shelves-table
   report-sales-table
   report-potatoes-table
   report-stock-table
@@ -43,6 +45,8 @@ globals [
   report-diet-prefs-table
   report-saved-diet-prefs-table
   report-delta-diet-prefs-table
+  report-saved-sales-table
+ report-delta-sales-table
   business-duration-list
   low-income-affordability-table
   middle-income-affordability-table
@@ -146,6 +150,8 @@ to setup-globals
   set cooked-vegetarian 0
   set cooked-vegan 0
   set total-no-sales-count 0
+  set empty-shelves 0
+  set empty-shelves-table table:make
   set report-sales-table table:make
   set report-potatoes-table table:make
   set report-stock-table table:make
@@ -159,6 +165,8 @@ to setup-globals
   set report-delta-diet-prefs-table table:make
   set report-saved-stock-table table:make
   set report-delta-stock-table table:make
+  set report-saved-sales-table table:make
+  set report-delta-sales-table table:make
   set business-duration-list []
   set meal-quality-variance 0.1 ;hard-coded 10% standard deviation of a cook's cooking skills
 
@@ -172,6 +180,9 @@ to setup-globals
     table:put report-delta-diet-prefs-table diets 0
     table:put report-saved-stock-table diets 0
     table:put report-delta-stock-table diets 0
+    table:put report-saved-sales-table diets 0
+    table:put report-delta-sales-table diets 0
+    table:put empty-shelves-table diets 0
   ]
 
       table:put report-potatoes-table "potatoes" 0
@@ -369,9 +380,9 @@ to setup-food-outlets
       ]
 
       ; Show the table to verify
-      ;if debug? [
+      if debug? [
     show initial-stock-table
-    ;]
+    ]
 
     foreach diets-list [ diets ->
       table:put sales-table diets 0
@@ -443,6 +454,7 @@ to go
   prepare-relative-change-meals-cooked-reporter
   prepare-relative-change-dietary-preferences-reporter
   prepare-relative-change-stocks-reporter
+  prepare-relative-change-sales-reporter
 
 
   tick
@@ -530,37 +542,50 @@ to influence-diets
           let influencers-group n-of nr-influencers persons
 
 
-          ask influencers-group [set diet influencers-diet]
+          ask influencers-group [
+        table:put meal-enjoyment-table influencers-diet 1
+        set diet influencers-diet
+      ]
 
 
 
         ]
 
-        influencers = "low-status" [
+      influencers = "low-status" [
 
-          let low-status-persons persons with [status <= 0.25]
+        let low-status-persons persons with [status <= 0.5]
 
-          let count-low-status-persons count low-status-persons
-          let nr-influencers p-influencers * count-low-status-persons
-          let influencers-group n-of nr-influencers low-status-persons
-
-
-          ask influencers-group [set diet influencers-diet]
-
-
-        ]
+        let count-low-status-persons count low-status-persons
+        print count-low-status-persons
+        let nr-influencers p-influencers * count-low-status-persons
+        print nr-influencers
+        let influencers-group n-of nr-influencers low-status-persons
+        print influencers-group
 
 
-
-        influencers = "high-status" [
-          let high-status-persons persons with [status >= 0.75]
-          let count-high-status-persons count high-status-persons
-          let nr-influencers p-influencers * count-high-status-persons
-          let influencers-group n-of nr-influencers high-status-persons
-
-          ask influencers-group [set diet influencers-diet]
+        ask influencers-group [
+          table:put meal-enjoyment-table influencers-diet 1
+          set diet influencers-diet
 
         ]
+
+
+      ]
+
+
+
+      influencers = "high-status" [
+        let high-status-persons persons with [status >= 0.5]
+        let count-high-status-persons count high-status-persons
+        let nr-influencers p-influencers * count-high-status-persons
+        let influencers-group n-of nr-influencers high-status-persons
+
+        ask influencers-group [
+          set diet influencers-diet
+          table:put meal-enjoyment-table influencers-diet 1
+        ]
+
+      ]
 
         ;if something goes wrong
         [print "The model was not able to use influencers to change dietary preference of part of the population"]
@@ -1273,9 +1298,9 @@ to get-alternative-groceries ;this procedure takes place in the supermarket wher
 
     let protein-complaint one-of alternative-shopping-list
     set failed-meal protein-complaint
-      ;if debug? [
+      if debug? [
     show (word "get alternative groceries I am complaining about // "nr-dinner-guests " "  protein-complaint  " at " my-supermarket " \\but I could have complained about all these: " alternative-shopping-list)
-  ;]
+  ]
 
   ask my-supermarket [
 
@@ -1345,6 +1370,8 @@ to check-out-groceries
             show (word "Our stock table: " stock-table)
           ]
         ]
+
+        ;extra check for supermarkets in the rare cases they run out of stock of one or more protein sources
 
         ;the cook gets the product and adds his purchase to the sales of the food outlet
         if meal-to-cook != "none" [
@@ -1499,7 +1526,7 @@ to update-diet-preference
 
       ;if my-last-dinner = "potatoes"
       ;if debug? [
-      [show (word "We poor people in household "h-id " had to eat potatoes, grr at " ticks)]
+      [show (word "We poor people in household "h-id " had to eat potatoes, grr at at time step " ticks)]
       ;]
     ]
 
@@ -1511,6 +1538,8 @@ to update-diet-preference
 
     let max-diet "none"
     let max-value 0
+
+    ;check for each dietary preference if it has the highest value and choose the highest value as the max-value
 
     foreach diets-list [ diets ->
       let value table:get meal-enjoyment-table diets
@@ -1790,18 +1819,28 @@ to check-restocking-tables
 
       if restocking-time != 0 and ticks != 0 [
 
-        ;check if stocks have reached 0 already, if so, halt the run
-        foreach diets-list [ diets ->
-          let initial-stock table:get initial-stock-table diets
-          let current-stock table:get stock-table diets
-          if current-stock = 0 and initial-stock != 0 [
-            if debug? [
-              show (word "check-restock-tables We have run out of " diets " at tick " ticks)
+        ;check if stocks have reached 0 already, if so, add to global reporter
 
-            ]
-            ;set error? true
+          foreach diets-list [ diets ->
+            let current-stock (table:get stock-table diets)
+            ifelse current-stock <= 0 [
+
+              show (word "Disaster! At time step " ticks " we ran out of :" diets " with only " current-stock " left.")
+
+            set empty-shelves empty-shelves + 1
+            table:put empty-shelves-table diets empty-shelves
+              ]
+              ;if current-stock > 0
+              [
+                ;do nothing, everything is okay
+              ]
           ]
-        ]
+
+
+          if debug? [
+            show (word "Our stock table: " stock-table)
+          ]
+
 
 
         ;do nothing, it is not restocking day
@@ -1826,11 +1865,6 @@ to check-restocking-tables
           if debug? [
             show (word "current-sales-list for: " diets " " current-sales-list " restocking-purpose-sales-list " restocking-purpose-sales-list)
           ]
-
-
-
-
-
 
           ;take the mean sales since the last restocking day
           let mean-sublist mean restocking-purpose-sales-list
@@ -1860,6 +1894,10 @@ to check-restocking-tables
       ]
     ]
   ]
+
+            if debug? [
+            show (word "Empty shelves table: " empty-shelves-table)
+          ]
 
 
 end
@@ -2060,14 +2098,8 @@ end
 
 to prepare-relative-change-stocks-reporter
 
-  ;set table with stock per tick
-  ;use same table as in prepare stock reporter, report-stock-table
-  ;print report-stock-table
 
-  ;print (list "current diets" report-diet-prefs-table)
-
-
-  ;set table with difference in meals cooked for the current tick compared to the previous tick
+  ;set table with difference in stocks for the current tick compared to the previous tick
   foreach diets-list [diets ->
     let current-stock table:get report-stock-table diets
     ;print current-meals-cooked
@@ -2096,6 +2128,38 @@ to prepare-relative-change-stocks-reporter
   foreach diets-list [diets ->
     let count-saved-stock table:get report-stock-table diets
     table:put report-saved-stock-table diets count-saved-stock
+  ]
+
+end
+
+to prepare-relative-change-sales-reporter
+
+
+  ;set table with difference in sales for the current tick compared to the previous tick
+  foreach diets-list [diets ->
+    let current-sales table:get report-sales-table diets
+    let previous-sales table:get report-saved-sales-table diets
+    let delta-sales (current-sales - previous-sales)
+
+    (ifelse previous-sales = 0 and delta-sales != 0 [
+      table:put report-delta-sales-table diets 1
+      ]
+      delta-sales = 0 [
+        table:put report-delta-sales-table diets 0 ;no change in sales
+      ]
+      previous-sales != 0 and delta-sales != 0 [
+        let relative-change-sales ((delta-sales / previous-sales) * 1 )
+        table:put report-delta-sales-table diets relative-change-sales
+      ]
+      ;if something goes wrong
+      [show "We cannot calculate the relative change in sales"]
+    )
+  ]
+
+  ;set table that remembers the dietary preferences at the current tick for the next tick
+  foreach diets-list [diets ->
+    let count-saved-sales table:get report-sales-table diets
+    table:put report-saved-sales-table diets count-saved-sales
   ]
 
 end
@@ -2165,6 +2229,29 @@ end
 to-report bad-sales
   report total-no-sales-count
 end
+
+;empty shelves
+
+to-report empty-meat-shelve
+  let empty-meat table:get empty-shelves-table "meat"
+  report empty-meat
+end
+
+to-report empty-fish-shelve
+  let empty-fish table:get empty-shelves-table "fish"
+  report empty-fish
+end
+
+to-report empty-vegetarian-shelve
+  let empty-vegetarian table:get empty-shelves-table "vegetarian"
+  report empty-vegetarian
+end
+
+to-report empty-vegan-shelve
+  let empty-vegan table:get empty-shelves-table "vegan"
+  report empty-vegan
+end
+
 
 
 ;; stocks ;;
@@ -2262,6 +2349,30 @@ to-report relative-change-vegan-stock
   report relative-change
 end
 
+;; relative sales changes ;;
+
+to-report relative-change-meat-sales
+  let relative-change table:get report-delta-sales-table "meat"
+  report relative-change
+end
+
+to-report relative-change-fish-sales
+  let relative-change table:get report-delta-sales-table "fish"
+  report relative-change
+end
+
+to-report relative-change-vegetarian-sales
+  let relative-change table:get report-delta-sales-table "vegetarian"
+  report relative-change
+end
+
+to-report relative-change-vegan-sales
+  let relative-change table:get report-delta-sales-table "vegan"
+  report relative-change
+end
+
+
+
 ;; frequency reporter ;;
 
 to-report frequency [x freq-list]
@@ -2269,9 +2380,9 @@ to-report frequency [x freq-list]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-919
+876
 165
-1537
+1494
 784
 -1
 -1
@@ -2362,21 +2473,21 @@ NIL
 1
 
 INPUTBOX
-7
-586
-162
-646
+8
+637
+163
+697
 current-seed
--1.54137749E8
+1.552146676E9
 1
 0
 Number
 
 SWITCH
-170
-587
-283
-620
+171
+638
+284
+671
 fixed-seed?
 fixed-seed?
 1
@@ -2385,9 +2496,9 @@ fixed-seed?
 
 PLOT
 416
-309
+163
 643
-456
+310
 meals cooked
 NIL
 NIL
@@ -2426,10 +2537,10 @@ PENS
 "vegan" 1.0 0 -14439633 true "" "plot count persons with [diet = \"vegan\"]"
 
 PLOT
-647
-610
-918
-760
+1088
+15
+1291
+163
 distribution of status
 NIL
 NIL
@@ -2464,10 +2575,10 @@ LEGEND\nmeat = brown\nfish = pink\nveget = yellow\nvegan = green
 1
 
 PLOT
-416
-458
-643
-608
+1292
+16
+1491
+159
 Diet variety in network
 NIL
 NIL
@@ -2517,10 +2628,10 @@ SCENARIOS & INTERVENTIONS
 1
 
 TEXTBOX
-14
-566
-151
-584
+15
+617
+152
+635
 RUN CONTROLS
 10
 0.0
@@ -2557,10 +2668,10 @@ NIL
 HORIZONTAL
 
 PLOT
-414
-163
-641
-307
+413
+471
+640
+615
 total stocks in food outlet
 NIL
 NIL
@@ -2579,9 +2690,9 @@ PENS
 
 PLOT
 645
-309
-916
-457
+163
+873
+312
 relative change in meals cooked
 NIL
 NIL
@@ -2599,10 +2710,10 @@ PENS
 "pen-4" 1.0 0 -6459832 true "" "plot relative-change-meat-cooked"
 
 SWITCH
-290
-588
-393
-621
+291
+639
+394
+672
 error?
 error?
 1
@@ -2610,10 +2721,10 @@ error?
 -1000
 
 PLOT
-645
-12
-914
-158
+646
+15
+874
+163
 relative change in dietary preferences
 NIL
 NIL
@@ -2631,10 +2742,10 @@ PENS
 "pen-4" 1.0 0 -6459832 true "" "plot relative-change-meat-pref"
 
 PLOT
-644
-162
-914
-308
+645
+469
+873
+617
 relative change in stocks
 NIL
 NIL
@@ -2651,82 +2762,40 @@ PENS
 "pen-3" 1.0 0 -13840069 true "" "plot relative-change-vegan-stock"
 "pen-4" 1.0 0 -6459832 true "" "plot relative-change-meat-stock"
 
-PLOT
-916
-11
-1123
-161
-low status - dietary preference
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -6459832 true "" "plot count persons with [diet = \"meat\" and status <= 0.25]"
-"pen-1" 1.0 0 -2064490 true "" "plot count persons with [diet = \"fish\" and status <= 0.25]"
-"pen-2" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\" and status <= 0.25]"
-"pen-3" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\" and status <= 0.25]"
-
-PLOT
-1124
-11
-1330
-161
-high status - dietary preference
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -8431303 true "" "plot count persons with [diet = \"meat\" and status >= 0.75]"
-"pen-1" 1.0 0 -2064490 true "" "plot count persons with [diet = \"fish\" and status >= 0.75]"
-"pen-2" 1.0 0 -4079321 true "" "plot count persons with [diet = \"vegetarian\" and status >= 0.75]"
-"pen-3" 1.0 0 -13840069 true "" "plot count persons with [diet = \"vegan\" and status >= 0.75]"
-
 CHOOSER
-9
-504
-147
-549
+8
+541
+146
+586
 influencers
 influencers
 "random" "high-status" "low-status"
-0
+2
 
 SLIDER
-129
-465
-301
-498
+5
+503
+177
+536
 p-influencers
 p-influencers
 0
 1
-0.59
+0.5
 0.01
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-152
-504
-290
-549
+151
+541
+289
+586
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-3
+2
 
 SWITCH
 9
@@ -2735,7 +2804,7 @@ SWITCH
 497
 influencers?
 influencers?
-1
+0
 1
 -1000
 
@@ -2759,7 +2828,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
-0.25
+-0.27
 0.01
 1
 NIL
@@ -2785,17 +2854,17 @@ p-change-animal-protein
 p-change-animal-protein
 -1
 1
--1.0
+-0.02
 0.01
 1
 NIL
 HORIZONTAL
 
 PLOT
-416
-612
-644
-762
+645
+623
+871
+773
 Number of products in food outlets
 NIL
 NIL
@@ -2810,10 +2879,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram(nr-of-products)"
 
 PLOT
-645
-459
-915
-609
+878
+18
+1084
+160
 Population (grey) vs Stocks (blue)
 NIL
 NIL
@@ -2849,10 +2918,10 @@ Adjust diets at t = 730
 1
 
 PLOT
-1330
-10
-1556
-160
+413
+316
+639
+466
 total sales
 NIL
 NIL
@@ -2896,26 +2965,72 @@ supply-demand
 2
 
 SWITCH
-170
-626
-283
-659
+171
+677
+284
+710
 debug?
 debug?
 1
 1
 -1000
 
-MONITOR
-1561
-10
-1627
-55
-bad-sales
-bad-sales
+PLOT
+412
+620
+638
+772
+empty shelves counter
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"pen-1" 1.0 0 -8431303 true "" "plot empty-meat-shelve"
+"default" 1.0 0 -2064490 true "" "plot empty-fish-shelve"
+"pen-2" 1.0 0 -4079321 true "" "plot empty-vegetarian-shelve"
+"pen-3" 1.0 0 -13840069 true "" "plot empty-vegan-shelve"
+
+PLOT
+647
+316
+870
+466
+relative change in sales
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"meat" 1.0 0 -8431303 true "" "plot relative-change-meat-sales"
+"fish" 1.0 0 -2064490 true "" "plot relative-change-fish-sales"
+"pen-2" 1.0 0 -4079321 true "" "plot relative-change-vegetarian-sales"
+"pen-3" 1.0 0 -13840069 true "" "plot relative-change-vegan-sales"
+
+SLIDER
+183
+502
+373
+535
+status-tail
+status-tail
 0
+0.5
+0.25
+0.01
 1
-11
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
