@@ -19,6 +19,7 @@ directed-link-breed [household-memberships household-membership]
 globals [
   weighted-diets-list ;weighted list of diets
   diets-list ;list with only diets
+  var-product-list ;varied weighted list of products
   product-list ; weighted list of products
   income-levels
   id-households
@@ -136,11 +137,9 @@ end
 
 to setup-globals
 
-  set weighted-diets-list (list (list "meat" 95.1 ) (list  "fish" 1.7 ) (list "vegetarian" 2.6 ) (list "vegan" 0.04 )) ;hard-coded values of dietary identities in the Netherlands
+  set weighted-diets-list (list (list "meat" 95.1 ) (list  "fish" 1.7 ) (list "vegetarian" 2.6 ) (list "vegan" 0.4 )) ;hard-coded values of dietary identities in the Netherlands
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
-  set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
-  set income-levels-list (list "low" "middle" "high")
-  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) ) ;hard-coded values based on a report of ready-meals
+  set product-list (list (list "meat" 0.6) (list "fish" 0.6) (list "vegetarian" 0.6) (list "vegan" 0.4) ) ;hard-coded values based on a report by Eiweet monitor
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -339,23 +338,31 @@ to setup-food-outlets
     set sales-table table:make
     set stock-table table:make
 
+      ;provide each food outlet with a stock based on the reported values in Eiweet monitor and add a 10% safety stock
 
-
-    ;if initial-equal? = "stats"
-    [
-      ;provide each food outlet with a stock based on the distribution of diets in the population
-      ;divide the potential-costumers over the 4 protein sources, + 20% safety stock
 
       ; Initialize a initial stock table
 
-      ; Count potential customers in range of the food outlet
-      let potential-customers count persons in-radius food-outlet-service-area
+    ; Distribute initial stocks based on potential customers and animal:plant ratio market share in Dutch supermarkets in 2023
+    ;create reported variation in animal:plant market sales
 
-      ; Distribute potential customers based on weighted-diets-list
-      foreach product-list [ diet-weight-pair ->
+    let min-plant random-float 0.35
+    let dif-plant random-float (0.53 - 0.35) ;difference between 35% and 53% plant-based market share
+    let var-plant min-plant + dif-plant ;resulting in a number between 0.35 and 0.53
+    let var-animal 1 - var-plant
+
+    ;normalize the values
+    let total-animal-plant (3 * var-animal) + var-plant
+    let p-plant var-plant / total-animal-plant
+    let p-animal var-animal / total-animal-plant
+
+
+    set var-product-list (list (list "meat" p-animal) (list "fish" p-animal) (list "vegetarian" p-animal) (list "vegan" p-plant) ) ;varied values based on a report by Eiweet monitor
+
+      foreach var-product-list [ diet-weight-pair ->
         let diet-type first diet-weight-pair  ; Extract diet name (e.g., "meat")
         let weight last diet-weight-pair      ; Extract weight value
-        let estimated-customers round (potential-customers * weight + (potential-customers * weight * 0.2))  ; set stock including 20% safety stock
+        let estimated-customers round (potential-costumers * weight + (potential-costumers * weight * 0.1))  ; set stock including 10% safety stock
 
         ; Store result in table
         table:put initial-stock-table diet-type estimated-customers
@@ -363,19 +370,20 @@ to setup-food-outlets
 
       ; Show the table to verify
       ;if debug? [
-      show initial-stock-table
-      ;]
+    show initial-stock-table
+    ;]
 
-      foreach diets-list [ diets ->
-        table:put sales-table diets 0
-        table:put stock-table diets table:get initial-stock-table diets
-      ]
-      set no-sales-count 0
-      set product-selection diets-list
-      set label (list potential-costumers product-selection)
-
-
+    foreach diets-list [ diets ->
+      table:put sales-table diets 0
+      table:put stock-table diets table:get initial-stock-table diets
     ]
+    set no-sales-count 0
+    set product-selection diets-list
+    set label (list potential-costumers product-selection)
+    set nr-protein-sources length product-selection
+
+
+
   ]
 
 
@@ -620,8 +628,7 @@ to change-plant-protein
             show (word "before change plant proteins if current stock != 0, our initial stock table " initial-stock-table)
           ]
 
-          ;let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
-           let assortment-change round ((business-orientation * current-stock * p-change-plant-protein) )
+          let assortment-change round ((business-orientation * current-stock * p-change-plant-protein) )
 
           if debug? [
           show (word food-item " change plant protein assortment-change " assortment-change)
@@ -665,6 +672,8 @@ to change-plant-protein
       ]
 
         set label (list potential-costumers current-product-selection)
+        set product-selection current-product-selection
+        set nr-protein-sources length product-selection
       ]
     ]
 
@@ -766,12 +775,14 @@ to change-animal-protein
             [
               ;do nothing
             ]
-          ]
-        if debug? [
+      ]
+      if debug? [
         show (word "changing label to " current-product-selection)
-        ]
+      ]
 
-          set label (list potential-costumers current-product-selection)
+      set label (list potential-costumers current-product-selection)
+      set product-selection current-product-selection
+      set nr-protein-sources length product-selection
 
     ]
     ;if ticks != 730, we are not changing the assortment
@@ -1827,7 +1838,7 @@ to check-restocking-tables
             show (word "our mean sales of: " diets " " mean-sublist " at tick " ticks)
           ]
 
-          ;update the stock using the mean and taking into account a safety stock of 20%
+          ;update the stock using the mean
           let current-stock table:get stock-table diets
           if debug? [
             show (word "check-restocking-table This is the current stock of " diets  " : " current-stock)
@@ -2327,7 +2338,7 @@ initial-nr-households
 initial-nr-households
 5
 14250
-105.0
+125.0
 10
 1
 NIL
@@ -2356,7 +2367,7 @@ INPUTBOX
 162
 646
 current-seed
--9.56987235E8
+-1.54137749E8
 1
 0
 Number
@@ -2368,7 +2379,7 @@ SWITCH
 620
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -2735,7 +2746,7 @@ SWITCH
 393
 change-plant-protein?
 change-plant-protein?
-0
+1
 1
 -1000
 
@@ -2761,7 +2772,7 @@ SWITCH
 392
 change-animal-protein?
 change-animal-protein?
-0
+1
 1
 -1000
 
@@ -2882,7 +2893,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-1
+2
 
 SWITCH
 170
@@ -2894,16 +2905,6 @@ debug?
 1
 1
 -1000
-
-CHOOSER
-181
-268
-319
-313
-initial-equal?
-initial-equal?
-"equal" "stats"
-1
 
 MONITOR
 1561
