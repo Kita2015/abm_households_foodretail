@@ -139,7 +139,7 @@ to setup-globals
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set income-levels (list (list "low" 0.5) (list "middle" 0.4) (list "high" 0.1)) ;hard-coded distribution of income levels in the Netherlands
   set income-levels-list (list "low" "middle" "high")
-  set product-list (list (list "meat" 7) (list "fish" 6) (list "vegetarian" 5) (list "vegan" 1) ) ;hard-coded values based on a report of ready-meals
+  set product-list (list (list "meat" 0.7) (list "fish" 0.6) (list "vegetarian" 0.5) (list "vegan" 0.1) ) ;hard-coded values based on a report of ready-meals
   set id-households 0
   set cooked-meat 0
   set cooked-fish 0
@@ -384,14 +384,20 @@ to setup-food-outlets
         ]
 
       if debug? [
-        show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
-      ]
+          show (word "My initial stock of " diets " is " (table:get initial-stock-table diets))
+        ]
+
+
         table:put sales-table diets 0
         table:put stock-table diets table:get initial-stock-table diets
       ]
-    if debug? [
-     show (word "my stock table: " stock-table)
-    ]
+
+      ;if debug? [
+      show (word "my initial stock table: " initial-stock-table   )
+      ;]
+      if debug? [
+        show (word "my stock table: " stock-table)
+      ]
 
     set no-sales-count 0
     set label (list potential-costumers product-selection)
@@ -412,7 +418,7 @@ to setup-food-outlets
       foreach product-list [ diet-weight-pair ->
         let diet-type first diet-weight-pair  ; Extract diet name (e.g., "meat")
         let weight last diet-weight-pair      ; Extract weight value
-        let estimated-customers round (potential-customers * weight + (potential-customers * weight * 0.5))  ; set stock including 20% safety stock
+        let estimated-customers round (potential-customers * weight + (potential-customers * weight * 0.2))  ; set stock including 20% safety stock
 
         ; Store result in table
         table:put initial-stock-table diet-type estimated-customers
@@ -646,7 +652,7 @@ to change-plant-protein
           if current-stock = 0 and p-change-plant-protein > 0 [
 
             ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
-            let assortment-change (business-orientation * potential-costumers * p-change-plant-protein)
+            let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein))
 
             if debug? [
               show (word "before change plant proteins if current stock = 0, our initial stock table " initial-stock-table)
@@ -664,7 +670,7 @@ to change-plant-protein
 
         if current-stock = 0 and p-change-plant-protein < 0 [
 
-          ;if the food outlet did not sell vegetarian and vegan before it will still not reduce selling these products.
+          ;if the food outlet did not sell vegetarian and vegan before it will not reduce selling these products.
           ;do nothing
         ]
 
@@ -677,7 +683,9 @@ to change-plant-protein
             show (word "before change plant proteins if current stock != 0, our initial stock table " initial-stock-table)
           ]
 
-          let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
+          ;let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein) )
+           let assortment-change round ((business-orientation * current-stock * p-change-plant-protein) )
+
           if debug? [
           show (word food-item " change plant protein assortment-change " assortment-change)
           ]
@@ -777,12 +785,13 @@ to change-animal-protein
 
             if current-stock != 0
             [
-              ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
-              let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
+          ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+          ;    let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
+          let assortment-change round ( (business-orientation * current-stock * p-change-animal-protein) )
           if debug? [
-              show (word food-item " change animal protein assortment-change " assortment-change)
+            show (word food-item " change animal protein assortment-change " assortment-change)
           ]
-              let new-assortment (current-stock + assortment-change)
+          let new-assortment (current-stock + assortment-change)
               ifelse new-assortment > 0 [
                 table:put initial-stock-table food-item new-assortment
                 table:put stock-table food-item table:get initial-stock-table food-item
@@ -1819,11 +1828,11 @@ to check-restocking-tables
           let initial-stock table:get initial-stock-table diets
           let current-stock table:get stock-table diets
           if current-stock = 0 and initial-stock != 0 [
-            ;if debug? [
+            if debug? [
               show (word "check-restock-tables We have run out of " diets " at tick " ticks)
 
-            ;]
-            set error? true
+            ]
+            ;set error? true
           ]
         ]
 
@@ -2387,7 +2396,7 @@ INPUTBOX
 162
 646
 current-seed
-2.16330836E8
+-9.56987235E8
 1
 0
 Number
@@ -2399,7 +2408,7 @@ SWITCH
 620
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
