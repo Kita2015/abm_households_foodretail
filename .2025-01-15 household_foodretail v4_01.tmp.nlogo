@@ -1209,14 +1209,13 @@ to get-groceries
     ;the cook files a complaint at the supermarket because he cannot purchase his desired ingredient. This way, the supermarkets are aware of the limitations of their stock.
 
       if debug? [
-    show (word "get  groceries I cannot buy MY protein source:  "meal-to-cook " here for " nr-dinner-guests " at " my-supermarket)
+    show (word "get  groceries I cannot buy MY protein source:  "meal-to-cok " here for " nr-dinner-guests " at " my-supermarket)
   ]
-
-    let protein-complaint meal-to-cook
 
   ask my-supermarket [
 
-      let current-nr-complaints table:get complaints-from-customers protein-complaint
+
+      let current-nr-complaints table:get complaints-from-customers meal-to-cook
       table:put complaints-from-customers protein-complaint (current-nr-complaints + nr-dinner-guests)
           if debug? [
       show (word "Complaints we have received so far: " complaints-from-customers)
@@ -2947,7 +2946,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-1
+2
 
 SWITCH
 170
