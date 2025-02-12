@@ -441,12 +441,14 @@ to go
   evaluate-meal
   normalize-status
 
+  ;interface visuals
+  visualization
+
   ;ask food outlets
   check-sales-tables
   check-restocking-tables
 
-  ;interface visuals
-  visualization
+
 
   ;reporters
   prepare-sales-reporter
@@ -2478,7 +2480,7 @@ INPUTBOX
 163
 697
 current-seed
-5.76477072E8
+1.005130404E9
 1
 0
 Number
@@ -2601,7 +2603,7 @@ nr-friends
 nr-friends
 0
 15
-1.0
+3.0
 1
 1
 NIL

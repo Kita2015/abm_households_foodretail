@@ -403,6 +403,9 @@ to setup-food-outlets
     set sorted-food-outlets sort-on [distance myself] food-outlets
     ifelse initial-nr-food-outlets <= 2 [
       set supermarket-changes initial-nr-food-outlets
+      if debug? [
+        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
+      ]
     ]
     [
     set supermarket-changes 3
@@ -418,7 +421,7 @@ end
 
 to go
 
-  if ticks = 3650 or error? = true [stop]
+  if ticks = 365 or error? = true [stop]
 
   closure-of-tick
 
@@ -441,12 +444,14 @@ to go
   evaluate-meal
   normalize-status
 
+  ;interface visuals
+  visualization
+
   ;ask food outlets
   check-sales-tables
   check-restocking-tables
 
-  ;interface visuals
-  visualization
+
 
   ;reporters
   prepare-sales-reporter
@@ -492,7 +497,15 @@ to closure-of-tick
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
-    set supermarket-changes 3
+    ifelse initial-nr-food-outlets <= 2 [
+      set supermarket-changes initial-nr-food-outlets
+      if debug? [
+        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
+      ]
+    ]
+    [
+      set supermarket-changes 3
+    ]
   ]
 
   ask households [
@@ -553,7 +566,7 @@ to influence-diets
 
       influencers = "low-status" [
 
-        let low-status-persons persons with [status <= 0.5]
+        let low-status-persons persons with [status <= status-tail]
 
         let count-low-status-persons count low-status-persons
         print count-low-status-persons
@@ -575,7 +588,7 @@ to influence-diets
 
 
       influencers = "high-status" [
-        let high-status-persons persons with [status >= 0.5]
+        let high-status-persons persons with [status >= status-tail]
         let count-high-status-persons count high-status-persons
         let nr-influencers p-influencers * count-high-status-persons
         let influencers-group n-of nr-influencers high-status-persons
@@ -2447,10 +2460,10 @@ SLIDER
 131
 initial-nr-households
 initial-nr-households
-5
-14250
-125.0
-10
+15
+1425
+120.0
+15
 1
 NIL
 HORIZONTAL
@@ -2478,7 +2491,7 @@ INPUTBOX
 163
 697
 current-seed
-1.552146676E9
+1.005130404E9
 1
 0
 Number
@@ -2490,7 +2503,7 @@ SWITCH
 671
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -2601,7 +2614,7 @@ nr-friends
 nr-friends
 0
 15
-1.0
+3.0
 1
 1
 NIL
@@ -2644,9 +2657,9 @@ SLIDER
 130
 initial-nr-food-outlets
 initial-nr-food-outlets
-3
-23
-6.0
+1
+11
+23.0
 1
 1
 NIL
@@ -2765,12 +2778,12 @@ PENS
 CHOOSER
 8
 541
-146
+174
 586
 influencers
 influencers
 "random" "high-status" "low-status"
-2
+0
 
 SLIDER
 5
@@ -2781,16 +2794,16 @@ p-influencers
 p-influencers
 0
 1
-0.5
+0.6
 0.01
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-151
+184
 541
-289
+355
 586
 influencers-diet
 influencers-diet
@@ -2804,7 +2817,7 @@ SWITCH
 497
 influencers?
 influencers?
-0
+1
 1
 -1000
 
@@ -2848,7 +2861,7 @@ change-animal-protein?
 SLIDER
 184
 397
-372
+362
 430
 p-change-animal-protein
 p-change-animal-protein
@@ -3020,7 +3033,7 @@ PENS
 SLIDER
 183
 502
-373
+355
 535
 status-tail
 status-tail
