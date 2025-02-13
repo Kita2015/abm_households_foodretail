@@ -403,6 +403,9 @@ to setup-food-outlets
     set sorted-food-outlets sort-on [distance myself] food-outlets
     ifelse initial-nr-food-outlets <= 2 [
       set supermarket-changes initial-nr-food-outlets
+      if debug? [
+        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
+      ]
     ]
     [
     set supermarket-changes 3
@@ -418,7 +421,7 @@ end
 
 to go
 
-  if ticks = 3650 or error? = true [stop]
+  if ticks = 365 or error? = true [stop]
 
   closure-of-tick
 
@@ -494,7 +497,15 @@ to closure-of-tick
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
-    set supermarket-changes 3
+    ifelse initial-nr-food-outlets <= 2 [
+      set supermarket-changes initial-nr-food-outlets
+      if debug? [
+        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
+      ]
+    ]
+    [
+      set supermarket-changes 3
+    ]
   ]
 
   ask households [
@@ -2449,10 +2460,10 @@ SLIDER
 131
 initial-nr-households
 initial-nr-households
-5
-14250
-125.0
-10
+15
+1425
+120.0
+15
 1
 NIL
 HORIZONTAL
@@ -2492,7 +2503,7 @@ SWITCH
 671
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -2646,9 +2657,9 @@ SLIDER
 130
 initial-nr-food-outlets
 initial-nr-food-outlets
-3
-23
-6.0
+1
+11
+5.0
 1
 1
 NIL
@@ -2806,7 +2817,7 @@ SWITCH
 497
 influencers?
 influencers?
-0
+1
 1
 -1000
 
@@ -2950,7 +2961,7 @@ restocking-frequency
 restocking-frequency
 1
 12
-4.0
+12.0
 1
 1
 NIL

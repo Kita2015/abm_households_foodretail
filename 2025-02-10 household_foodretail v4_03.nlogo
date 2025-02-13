@@ -421,14 +421,14 @@ end
 
 to go
 
-  if ticks = 365 or error? = true [stop]
+  if ticks = 1460 or error? = true [stop]
 
   closure-of-tick
 
   ;interventions
   influence-diets
-  change-plant-protein
-  change-animal-protein
+  ;change-plant-protein ;executed through check-restocking-tables procedure
+  ;change-animal-protein ;executed through check-restocking-tables procedure
 
   ;start having dinner
   select-group-and-cook
@@ -546,6 +546,8 @@ end
 
 to influence-diets
 
+ifelse intervention-implementation = "sudden" [
+
   ifelse influencers? = true and ticks = 730 [
 
       (ifelse influencers = "random" [
@@ -609,6 +611,75 @@ to influence-diets
   [
     ;do nothing
   ]
+  ]
+
+  ;ifelse intervention-implementation = "gradual"
+  [
+
+  ifelse influencers? = true and ticks > 730 [
+
+      (ifelse influencers = "random" [
+
+          let count-persons count persons
+          let nr-influencers p-influencers * count-persons
+          let influencers-group n-of nr-influencers persons
+
+
+          ask influencers-group [
+        table:put meal-enjoyment-table influencers-diet 1
+        set diet influencers-diet
+      ]
+
+
+
+        ]
+
+      influencers = "low-status" [
+
+        let low-status-persons persons with [status <= status-tail]
+
+        let count-low-status-persons count low-status-persons
+        print count-low-status-persons
+        let nr-influencers p-influencers * count-low-status-persons
+        print nr-influencers
+        let influencers-group n-of nr-influencers low-status-persons
+        print influencers-group
+
+
+        ask influencers-group [
+          table:put meal-enjoyment-table influencers-diet 1
+          set diet influencers-diet
+
+        ]
+
+
+      ]
+
+
+
+      influencers = "high-status" [
+        let high-status-persons persons with [status >= status-tail]
+        let count-high-status-persons count high-status-persons
+        let nr-influencers p-influencers * count-high-status-persons
+        let influencers-group n-of nr-influencers high-status-persons
+
+        ask influencers-group [
+          set diet influencers-diet
+          table:put meal-enjoyment-table influencers-diet 1
+        ]
+
+      ]
+
+        ;if something goes wrong
+        [print "The model was not able to use influencers to change dietary preference of part of the population"]
+      )
+
+  ]
+  ;if influencers = true but ticks != 730, we are not changing diets
+  [
+    ;do nothing
+  ]
+  ]
 
 
 
@@ -616,9 +687,9 @@ end
 
 to change-plant-protein
 
-  ask food-outlets [
 
-   ifelse change-plant-protein? = true and ticks = 730 [
+
+
 
       if debug? [
       show (word "Changing plant protein stock! at tick " ticks)
@@ -713,16 +784,11 @@ to change-plant-protein
         set product-selection current-product-selection
         set nr-protein-sources length product-selection
       ]
-    ]
-
-      ;if ticks != 730, do nothing
-      [
-        ;do nothing, we are not changing the assortment
-      ]
 
 
 
-  ]
+
+
 
 
 
@@ -734,9 +800,7 @@ end
 
 to change-animal-protein
 
-  ask food-outlets [
 
-   ifelse change-animal-protein? = true and ticks = 730 [
 
       let unsustainable-foods []
 
@@ -822,12 +886,8 @@ to change-animal-protein
       set product-selection current-product-selection
       set nr-protein-sources length product-selection
 
-    ]
-    ;if ticks != 730, we are not changing the assortment
-    [
-      ;do nothing
-    ]
-  ]
+
+
 
 
 
@@ -1895,6 +1955,53 @@ to check-restocking-tables
 
         ]
 
+        ;if one of the interventions to change the animal or protein stocks has been activated, apply these changes immediately after the restocking, so the intervention is applied to the most recent stocks
+
+        ifelse intervention-implementation = "sudden" [
+          ;intervention only occurs once at the first restocking day after 2 years
+          ifelse change-plant-protein? = true and ticks > 730 and ticks < 730 + restocking-frequency [
+            change-plant-protein
+            show (word "We are changing plant protein stock at " ticks)
+          ]
+
+          ;if ticks != 730, do nothing
+          [
+            ;we are not changing the assortment
+          ]
+
+          ifelse change-animal-protein? = true and ticks > 730 and ticks < 730 + restocking-frequency [
+            show (word "We are changing animal protein stocks at " ticks)
+            change-animal-protein
+          ]
+          ;if ticks != 730, we are not changing the assortment
+          [
+            ;do nothing
+          ]
+        ]
+
+        ;if intervention-implementation = "gradual"
+        [
+          ;intervention occurs at every restocking day after 2 years
+
+          ifelse change-plant-protein? = true and ticks > 730 [
+            change-plant-protein
+            show (word "We are changing plant protein stock at " ticks)
+          ]
+
+          ;if ticks != 730, do nothing
+          [
+            ;we are not changing the assortment
+          ]
+
+          ifelse change-animal-protein? = true and ticks > 730 [
+            show (word "We are changing animal protein stocks at " ticks)
+            change-animal-protein
+          ]
+          ;if ticks != 730, we are not changing the assortment
+          [
+            ;do nothing
+          ]
+        ]
 
 
         if debug? [
@@ -2463,7 +2570,7 @@ initial-nr-households
 initial-nr-households
 15
 1425
-120.0
+125.0
 15
 1
 NIL
@@ -2660,7 +2767,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 1
 11
-5.0
+6.0
 1
 1
 NIL
@@ -2784,7 +2891,7 @@ CHOOSER
 influencers
 influencers
 "random" "high-status" "low-status"
-0
+2
 
 SLIDER
 5
@@ -2795,7 +2902,7 @@ p-influencers
 p-influencers
 0
 1
-0.6
+0.5
 0.01
 1
 NIL
@@ -2809,7 +2916,7 @@ CHOOSER
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-2
+3
 
 SWITCH
 9
@@ -2818,7 +2925,7 @@ SWITCH
 497
 influencers?
 influencers?
-1
+0
 1
 -1000
 
@@ -2829,7 +2936,7 @@ SWITCH
 393
 change-plant-protein?
 change-plant-protein?
-1
+0
 1
 -1000
 
@@ -2842,7 +2949,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
--0.27
+0.5
 0.01
 1
 NIL
@@ -2855,7 +2962,7 @@ SWITCH
 392
 change-animal-protein?
 change-animal-protein?
-1
+0
 1
 -1000
 
@@ -2866,10 +2973,10 @@ SLIDER
 430
 p-change-animal-protein
 p-change-animal-protein
--1
-1
--0.02
-0.01
+-0.25
+0.25
+-0.01
+0.001
 1
 NIL
 HORIZONTAL
@@ -2962,7 +3069,7 @@ restocking-frequency
 restocking-frequency
 1
 12
-12.0
+4.0
 1
 1
 NIL
@@ -3045,6 +3152,16 @@ status-tail
 1
 NIL
 HORIZONTAL
+
+CHOOSER
+174
+268
+353
+313
+intervention-implementation
+intervention-implementation
+"gradual" "sudden"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
