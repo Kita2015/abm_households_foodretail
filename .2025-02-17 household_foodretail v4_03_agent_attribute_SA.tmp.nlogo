@@ -46,7 +46,7 @@ globals [
   report-saved-diet-prefs-table
   report-delta-diet-prefs-table
   report-saved-sales-table
- report-delta-sales-table
+  report-delta-sales-table
   business-duration-list
   low-income-affordability-table
   middle-income-affordability-table
@@ -251,8 +251,9 @@ to setup-persons
     set failed-meal "none"
     set cooking-skills random-float 1
     set status random-float 1
-    ;set status 0.5
+    ;set status 0
     set neophobia random-float 1
+    ;set neophobia 0
     set individualism random-float 1
     set my-last-dinner "none"
     set last-meals-quality "none"
@@ -421,7 +422,7 @@ end
 
 to go
 
-  if ticks = 1460 or error? = true [stop]
+  if ticks = 3650 or error? = true [stop]
 
   closure-of-tick
 
@@ -1035,6 +1036,10 @@ to select-group-and-cook ;household procedure
     ]
   ]
 
+    let people-eating-in persons with [at-home? = true]
+  print people-eating-in
+
+
 end
 
 ;;; MEAL SELECTION ;;;
@@ -1258,14 +1263,14 @@ to get-groceries
 
     let protein-complaint meal-to-cook
 
-  ask my-supermarket [
-
-      let current-nr-complaints table:get complaints-from-customers protein-complaint
-      table:put complaints-from-customers protein-complaint (current-nr-complaints + nr-dinner-guests)
-          if debug? [
-      show (word "Complaints we have received so far: " complaints-from-customers)
-    ]
-    ]
+;  ask my-supermarket [
+;
+;      let current-nr-complaints table:get complaints-from-customers protein-complaint
+;      table:put complaints-from-customers protein-complaint (current-nr-complaints + nr-dinner-guests)
+;          if debug? [
+;      show (word "Complaints we have received so far: " complaints-from-customers)
+;    ]
+;    ]
 
 
     if debug? [
@@ -1573,6 +1578,8 @@ to set-meal-evaluation
       ]
     ]
   ]
+
+
 
 end
 
@@ -2322,6 +2329,20 @@ to-report diet-variety-networks
   report [network-diet-diversity] of persons
 end
 
+;; percentage eating out ;;
+
+to-report percentage-eating-in
+  let people-eating-in persons with [at-home? = true]
+  let fraction-eating-in count people-eating-in / count persons
+  report fraction-eating-in
+end
+
+to-report percentage-enjoying-meal
+  let people-positive-enjoyment persons with [last-meal-enjoyment? = true]
+  let fraction-enjoying-meal count people-positive-enjoyment / count persons
+  report fraction-enjoying-meal
+end
+
 ;; sales ;;
 
 to-report meat-sales
@@ -2601,7 +2622,7 @@ INPUTBOX
 163
 697
 current-seed
-1.86861229E8
+1.005130404E9
 1
 0
 Number
@@ -2613,7 +2634,7 @@ SWITCH
 671
 fixed-seed?
 fixed-seed?
-1
+0
 1
 -1000
 
@@ -2951,7 +2972,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
-0.51
+0.05
 0.01
 1
 NIL
@@ -2984,10 +3005,10 @@ NIL
 HORIZONTAL
 
 PLOT
-645
-623
-871
-773
+413
+778
+639
+928
 Number of products in food outlets
 NIL
 NIL
@@ -3006,7 +3027,7 @@ PLOT
 18
 1084
 160
-Population (grey) vs Stocks (blue)
+Population (black) vs Stocks (blue)
 NIL
 NIL
 0.0
@@ -3017,8 +3038,8 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -14730904 true "" "plot total-stocks"
-"pen-1" 1.0 0 -7500403 true "" "plot count persons"
+"default" 1.0 0 -13791810 true "" "plot total-stocks"
+"pen-1" 1.0 0 -16777216 true "" "plot count persons"
 
 TEXTBOX
 12
@@ -3164,6 +3185,25 @@ intervention-implementation
 intervention-implementation
 "gradual" "sudden"
 0
+
+PLOT
+649
+623
+873
+773
+Eating in (black) .. Enjoying meal (blue)
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot percentage-eating-in"
+"pen-1" 1.0 0 -13791810 true "" "plot percentage-enjoying-meal"
 
 @#$#@#$#@
 ## WHAT IS IT?
