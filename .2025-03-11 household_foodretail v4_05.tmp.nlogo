@@ -28,8 +28,10 @@ globals [
   cooked-vegetarian
   cooked-vegan
   total-no-sales-count
-  empty-shelves
-  empty-shelves-table
+  food-outlets-list
+  food-outlets-empty-shelves-table
+  proteins-empty-shelves-table
+  product-counts-table
   report-sales-table
   report-potatoes-table
   report-stock-table
@@ -150,8 +152,10 @@ to setup-globals
   set cooked-vegetarian 0
   set cooked-vegan 0
   set total-no-sales-count 0
-  set empty-shelves 0
-  set empty-shelves-table table:make
+  set food-outlets-empty-shelves-table  table:make
+  set proteins-empty-shelves-table table:make
+  set product-counts-table table:make
+  set food-outlets-list []
   set report-sales-table table:make
   set report-potatoes-table table:make
   set report-stock-table table:make
@@ -182,7 +186,7 @@ to setup-globals
     table:put report-delta-stock-table diets 0
     table:put report-saved-sales-table diets 0
     table:put report-delta-sales-table diets 0
-    table:put empty-shelves-table diets 0
+    table:put proteins-empty-shelves-table diets 0
   ]
 
       table:put report-potatoes-table "potatoes" 0
@@ -334,6 +338,7 @@ to setup-food-outlets
     foreach diets-list [ diets ->
       table:put diet-sublists-table diets []
       table:put complaints-from-customers diets 0
+      table:put product-counts-table diets 0
     ]
 
     if debug? [
@@ -412,6 +417,16 @@ to setup-food-outlets
     set supermarket-changes 3
     ]
   ]
+
+  set food-outlets-list [who] of food-outlets
+
+  foreach food-outlets-list [ fo ->
+    table:put  food-outlets-empty-shelves-table fo []
+  ]
+  if debug? [
+  print food-outlets-empty-shelves-table
+  ]
+
 
 end
 
@@ -529,6 +544,10 @@ to closure-of-tick
     foreach diets-list [ diets ->
       table:put sales-table diets 0
       table:put complaints-from-customers diets 0
+    ]
+
+    foreach food-outlets-list [ fo ->
+      table:put  food-outlets-empty-shelves-table fo []
     ]
   ]
 
@@ -1036,8 +1055,7 @@ to select-group-and-cook ;household procedure
     ]
   ]
 
-    let people-eating-in persons with [at-home? = true]
-  print people-eating-in
+
 
 
 end
@@ -1885,17 +1903,15 @@ to check-restocking-tables
       ;first check if stocks have become negative
       foreach diets-list [ diets ->
         let check-stock table:get stock-table diets
-        if check-stock < 0 [
-          if debug? [
-            show (word "check-restock-tables We have gone surreal, our stock of " diets " has become negative: " check-stock " at tick " ticks)
+        if check-stock < 0 and ticks > 150 [
 
-
+          show (word "check-restock-tables We have gone surreal, our stock of " diets " has become negative: " check-stock " at tick " ticks)
+            set error? true
           ]
-         set error? true
         ]
-      ]
 
-      ;test if it is restocking day
+
+        ;test if it is restocking day
       let restocking-time ticks mod restocking-frequency
 
       if restocking-time != 0 and ticks != 0 [
@@ -1904,13 +1920,21 @@ to check-restocking-tables
 
         foreach diets-list [ diets ->
           let current-stock (table:get stock-table diets)
-          ifelse current-stock <= 0 [
+          ifelse current-stock = 0 [
             if debug? [
               show (word "Disaster! At time step " ticks " we ran out of :" diets " with only " current-stock " left.")
             ]
 
-            set empty-shelves empty-shelves + 1
-            table:put empty-shelves-table diets empty-shelves
+
+            let outlet-who who
+            let empty-shelves-list table:get food-outlets-empty-shelves-table outlet-who
+            let sold-out-protein diets
+            table:put food-outlets-empty-shelves-table  outlet-who (lput sold-out-protein  empty-shelves-list)
+             ;if debug? [
+            show (word "Table AFTER adding another empty shelve: " food-outlets-empty-shelves-table )
+            ;]
+
+
           ]
           ;if current-stock > 0
               [
@@ -1933,6 +1957,7 @@ to check-restocking-tables
         if debug? [
         show (word "It is restocking day! at " ticks)
         ]
+
 
         ;retrieve the sales-lists from diet-sublists-table and update the stock accordingly
 
@@ -1960,7 +1985,9 @@ to check-restocking-tables
             show (word "check-restocking-table This is the current stock of " diets  " : " current-stock)
           ]
 
-          table:put stock-table diets round ( current-stock + ( ( mean-sublist + (mean-sublist * 0) ) * restocking-frequency ) )
+          ;update the stocks according to Q = S - I. Q = quantity to be ordered, S = inventory level up to which is ordered based on demand, I = inventory left
+          ;table:put stock-table diets round ( ( mean-sublist * restocking-frequency ) + (mean-sublist * restocking-frequency * 0.1) - current-stock ) ;
+          table:put stock-table diets round  ( current-stock + ( ( mean-sublist + (mean-sublist * 0.1) ) * restocking-frequency ) - current-stock )
 
         ]
 
@@ -2025,9 +2052,47 @@ to check-restocking-tables
     ]
   ]
 
-            if debug? [
-            show (word "Empty shelves table: " empty-shelves-table)
-          ]
+  if debug? [
+    ;show (word "Empty shelves table: " empty-shelves-table)
+  ]
+
+
+  ;check empty shelves
+  ;in case all outlets had an empty shelve, an empty shelve for that particular protein source should be added in the protein empty shelves table
+
+  ;
+  ;use diets-list for the 4 protein sources
+  ;food-outlets-empty-shelves-table --> stores for each food outlet which protein source was sold out in this time step
+  ;proteins-empty-shelves-table --> stores if one protein source was sold out in all food outlets this time step
+
+  foreach diets-list [ diets ->
+    let appears-in-all? true
+
+    foreach table:keys food-outlets-empty-shelves-table [ outlet-who ->
+      let sold-out-protein table:get food-outlets-empty-shelves-table outlet-who
+      if debug? [
+      print (word sold-out-protein outlet-who)
+      ]
+      if not member? diets sold-out-protein [
+      set appears-in-all? false
+      if debug? [
+          print (word appears-in-all? diets outlet-who)
+        ]
+      ]
+
+    ]
+
+ if appears-in-all? [
+   table:put proteins-empty-shelves-table diets 1
+    ]
+    if debug?
+    print (word "Proteins empty shelves table at " ticks "  " proteins-empty-shelves-table)
+
+  ]
+
+
+
+
 
 
 end
@@ -2376,27 +2441,48 @@ end
 
 ;empty shelves
 
+;reporting empty shelve in each supermarket
+;to-report empty-meat-shelve
+;  let empty-meat table:get empty-shelves-table "meat"
+;  report empty-meat
+;end
+;
+;to-report empty-fish-shelve
+;  let empty-fish table:get empty-shelves-table "fish"
+;  report empty-fish
+;end
+;
+;to-report empty-vegetarian-shelve
+;  let empty-vegetarian table:get empty-shelves-table "vegetarian"
+;  report empty-vegetarian
+;end
+;
+;to-report empty-vegan-shelve
+;  let empty-vegan table:get empty-shelves-table "vegan"
+;  report empty-vegan
+;end
+
+;reporting all food outlets running out of a protein source
+
 to-report empty-meat-shelve
-  let empty-meat table:get empty-shelves-table "meat"
+  let empty-meat table:get proteins-empty-shelves-table "meat"
   report empty-meat
 end
 
 to-report empty-fish-shelve
-  let empty-fish table:get empty-shelves-table "fish"
+  let empty-fish table:get proteins-empty-shelves-table "fish"
   report empty-fish
 end
 
 to-report empty-vegetarian-shelve
-  let empty-vegetarian table:get empty-shelves-table "vegetarian"
+  let empty-vegetarian table:get proteins-empty-shelves-table "vegetarian"
   report empty-vegetarian
 end
 
 to-report empty-vegan-shelve
-  let empty-vegan table:get empty-shelves-table "vegan"
+  let empty-vegan table:get proteins-empty-shelves-table "vegan"
   report empty-vegan
 end
-
-
 
 ;; stocks ;;
 
@@ -2972,7 +3058,7 @@ p-change-plant-protein
 p-change-plant-protein
 -1
 1
-0.05
+0.75
 0.01
 1
 NIL
@@ -3092,7 +3178,7 @@ restocking-frequency
 restocking-frequency
 1
 12
-4.0
+3.0
 1
 1
 NIL
@@ -3187,7 +3273,7 @@ intervention-implementation
 0
 
 PLOT
-649
+646
 623
 873
 773
