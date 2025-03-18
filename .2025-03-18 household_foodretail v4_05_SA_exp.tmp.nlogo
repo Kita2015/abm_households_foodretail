@@ -1930,9 +1930,9 @@ to check-restocking-tables
             let empty-shelves-list table:get food-outlets-empty-shelves-table outlet-who
             let sold-out-protein diets
             table:put food-outlets-empty-shelves-table  outlet-who (lput sold-out-protein  empty-shelves-list)
-             ;if debug? [
+             if debug? [
             show (word "Table AFTER adding another empty shelve: " food-outlets-empty-shelves-table )
-            ;]
+            ]
 
 
           ]
@@ -2085,8 +2085,9 @@ to check-restocking-tables
  if appears-in-all? [
    table:put proteins-empty-shelves-table diets 1
     ]
-    if debug?
+    if debug? [
     print (word "Proteins empty shelves table at " ticks "  " proteins-empty-shelves-table)
+    ]
 
   ]
 
@@ -2708,7 +2709,7 @@ INPUTBOX
 163
 697
 current-seed
-1.005130404E9
+1.321714134E9
 1
 0
 Number
@@ -2720,7 +2721,7 @@ SWITCH
 671
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -3178,7 +3179,7 @@ restocking-frequency
 restocking-frequency
 1
 12
-3.0
+8.0
 1
 1
 NIL
@@ -3638,21 +3639,13 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="static_restocking_status_based" repetitions="100" runMetricsEveryStep="true">
+  <experiment name="dynamic_restocking_status_based_parameters" repetitions="100" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count persons with [diet = "meat"]</metric>
     <metric>count persons with [diet = "fish"]</metric>
     <metric>count persons with [diet = "vegetarian"]</metric>
     <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
     <metric>count persons with [meal-to-cook = "meat"]</metric>
     <metric>count persons with [meal-to-cook = "fish"]</metric>
     <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
@@ -3666,42 +3659,16 @@ NetLogo 6.4.0
     <metric>fish-stock</metric>
     <metric>vegetarian-stock</metric>
     <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
     <metric>diet-variety-networks</metric>
     <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
     <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
     <enumeratedValueSet variable="status-tail">
       <value value="0.25"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
+    <steppedValueSet variable="nr-friends" first="0" step="1" last="5"/>
     <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;static-restocking&quot;"/>
+      <value value="&quot;dynamic-restocking&quot;"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="influencers-diet">
       <value value="&quot;vegan&quot;"/>
@@ -3710,7 +3677,7 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="p-change-animal-protein">
       <value value="-0.01"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
+    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="8"/>
     <enumeratedValueSet variable="influencers">
       <value value="&quot;low-status&quot;"/>
     </enumeratedValueSet>
@@ -3723,9 +3690,7 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="change-animal-protein?">
       <value value="false"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
+    <steppedValueSet variable="initial-nr-households" first="25" step="75" last="1450"/>
     <enumeratedValueSet variable="intervention-implementation">
       <value value="&quot;gradual&quot;"/>
     </enumeratedValueSet>
@@ -3744,26 +3709,18 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="debug?">
       <value value="false"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
+    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="2" last="11"/>
     <enumeratedValueSet variable="p-change-plant-protein">
       <value value="0.51"/>
     </enumeratedValueSet>
   </experiment>
-  <experiment name="infinite_stock_majority" repetitions="100" runMetricsEveryStep="true">
+  <experiment name="dynamic_restocking_status_based_parameters (copy)" repetitions="5" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count persons with [diet = "meat"]</metric>
     <metric>count persons with [diet = "fish"]</metric>
     <metric>count persons with [diet = "vegetarian"]</metric>
     <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
     <metric>count persons with [meal-to-cook = "meat"]</metric>
     <metric>count persons with [meal-to-cook = "fish"]</metric>
     <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
@@ -3777,42 +3734,18 @@ NetLogo 6.4.0
     <metric>fish-stock</metric>
     <metric>vegetarian-stock</metric>
     <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
     <metric>diet-variety-networks</metric>
     <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
     <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
     <enumeratedValueSet variable="status-tail">
       <value value="0.25"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;infinite-stock&quot;"/>
+      <value value="&quot;dynamic-restocking&quot;"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="influencers-diet">
       <value value="&quot;vegan&quot;"/>
@@ -3824,7 +3757,7 @@ NetLogo 6.4.0
       <value value="-0.01"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="restocking-frequency">
-      <value value="1"/>
+      <value value="4"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="influencers">
       <value value="&quot;low-status&quot;"/>
@@ -3839,241 +3772,7 @@ NetLogo 6.4.0
       <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;majority&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-food-outlets">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="infinite_stock_random" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;infinite-stock&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="food-outlet-service-area">
-      <value value="40"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="restocking-frequency">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;random&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-food-outlets">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="infinite_stock_status_based" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;infinite-stock&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="food-outlet-service-area">
-      <value value="40"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="restocking-frequency">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
+      <value value="75"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="intervention-implementation">
       <value value="&quot;gradual&quot;"/>
@@ -4094,670 +3793,8 @@ NetLogo 6.4.0
       <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-nr-food-outlets">
-      <value value="1"/>
+      <value value="6"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="static_restocking_majority" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;static-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;majority&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="static_restocking_random" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;static-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;random&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="dynamic_restocking_majority" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;dynamic-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;majority&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="dynamic_restocking_status_based" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;dynamic-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;status-based&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="dynamic_restocking_random" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="nr-friends">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;dynamic-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-nr-households">
-      <value value="315"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;random&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="dynamic_restocking_status_based_parameters" repetitions="100" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
-    <metric>count persons with [diet = "meat" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "fish" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "vegan" and status &lt;= 0.25]</metric>
-    <metric>count persons with [diet = "meat" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "fish" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegetarian" and status &gt;= 0.75]</metric>
-    <metric>count persons with [diet = "vegan" and status &gt;= 0.75]</metric>
-    <metric>count persons with [meal-to-cook = "meat"]</metric>
-    <metric>count persons with [meal-to-cook = "fish"]</metric>
-    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
-    <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>empty-meat-shelve</metric>
-    <metric>empty-fish-shelve</metric>
-    <metric>empty-vegetarian-shelve</metric>
-    <metric>empty-vegan-shelve</metric>
-    <metric>relative-change-meat-pref</metric>
-    <metric>relative-change-fish-pref</metric>
-    <metric>relative-change-vegetarian-pref</metric>
-    <metric>relative-change-vegan-pref</metric>
-    <metric>relative-change-meat-cooked</metric>
-    <metric>relative-change-fish-cooked</metric>
-    <metric>relative-change-vegetarian-cooked</metric>
-    <metric>relative-change-vegan-cooked</metric>
-    <metric>relative-change-meat-sales</metric>
-    <metric>relative-change-fish-sales</metric>
-    <metric>relative-change-vegetarian-sales</metric>
-    <metric>relative-change-vegan-sales</metric>
-    <metric>relative-change-meat-stock</metric>
-    <metric>relative-change-fish-stock</metric>
-    <metric>relative-change-vegetarian-stock</metric>
-    <metric>relative-change-vegan-stock</metric>
-    <metric>nr-of-products</metric>
-    <metric>total-stocks</metric>
-    <metric>count persons</metric>
-    <metric>status-distribution</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
-    <metric>bad-sales</metric>
-    <metric>current-seed</metric>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="nr-friends" first="0" step="1" last="15"/>
-    <enumeratedValueSet variable="supply-demand">
-      <value value="&quot;dynamic-restocking&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="12"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="fixed-seed?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-households" first="15" step="15" last="1425"/>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="error?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="meal-selection">
-      <value value="&quot;status-based&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="debug?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="11"/>
     <enumeratedValueSet variable="p-change-plant-protein">
       <value value="0.51"/>
     </enumeratedValueSet>
