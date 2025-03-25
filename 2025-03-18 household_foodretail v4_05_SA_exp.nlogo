@@ -23,10 +23,6 @@ globals [
   product-list ; weighted list of products
   income-levels
   id-households
-  cooked-meat
-  cooked-fish
-  cooked-vegetarian
-  cooked-vegan
   total-no-sales-count
   food-outlets-list
   food-outlets-empty-shelves-table
@@ -147,10 +143,6 @@ to setup-globals
   set diets-list (list "meat" "fish" "vegetarian" "vegan")
   set product-list (list (list "meat" 0.6) (list "fish" 0.6) (list "vegetarian" 0.6) (list "vegan" 0.4) ) ;hard-coded values based on a report by Eiweet monitor
   set id-households 0
-  set cooked-meat 0
-  set cooked-fish 0
-  set cooked-vegetarian 0
-  set cooked-vegan 0
   set total-no-sales-count 0
   set food-outlets-empty-shelves-table  table:make
   set proteins-empty-shelves-table table:make
@@ -2709,7 +2701,7 @@ INPUTBOX
 163
 697
 current-seed
-1.321714134E9
+147518.0
 1
 0
 Number
@@ -2892,7 +2884,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-40.0
+60.0
 5
 1
 NIL
@@ -3158,8 +3150,8 @@ NIL
 NIL
 0.0
 10.0
-0.0
-10.0
+-0.5
+0.5
 true
 false
 "" ""
@@ -3193,7 +3185,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-2
+0
 
 SWITCH
 171

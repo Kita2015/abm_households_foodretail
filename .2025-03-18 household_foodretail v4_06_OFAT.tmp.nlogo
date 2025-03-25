@@ -75,7 +75,6 @@ persons-own [
   network-diet-diversity
   status
   neophobia
-  individualism
   at-home?
   my-supermarket
   sorted-food-outlets
@@ -250,7 +249,6 @@ to setup-persons
     ;set status 0
     set neophobia random-float 1
     ;set neophobia 0
-
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment? false
@@ -399,15 +397,15 @@ to setup-food-outlets
 
   ask persons [
     set sorted-food-outlets sort-on [distance myself] food-outlets
-    ifelse initial-nr-food-outlets <= 2 [
-      set supermarket-changes initial-nr-food-outlets
-      if debug? [
-        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
-      ]
-    ]
-    [
-    set supermarket-changes 3
-    ]
+;    ifelse initial-nr-food-outlets <= 2 [
+;      set supermarket-changes initial-nr-food-outlets
+;      if debug? [
+;        show (word "I am following the rules for setting supermarket-changes, which are: " supermarket-changes)
+;      ]
+;    ]
+;    [
+    set supermarket-changes supermarket-visits
+;    ]
   ]
 
   set food-outlets-list [who] of food-outlets
@@ -2701,7 +2699,7 @@ INPUTBOX
 163
 697
 current-seed
-147518.0
+4.49558608E8
 1
 0
 Number
@@ -2869,7 +2867,7 @@ initial-nr-food-outlets
 initial-nr-food-outlets
 1
 11
-6.0
+7.0
 1
 1
 NIL
@@ -2884,7 +2882,7 @@ food-outlet-service-area
 food-outlet-service-area
 20
 60
-60.0
+40.0
 5
 1
 NIL
@@ -3185,7 +3183,7 @@ CHOOSER
 supply-demand
 supply-demand
 "infinite-stock" "static-restocking" "dynamic-restocking"
-0
+2
 
 SWITCH
 171
@@ -3283,6 +3281,21 @@ false
 PENS
 "default" 1.0 0 -16777216 true "" "plot percentage-eating-in"
 "pen-1" 1.0 0 -13791810 true "" "plot percentage-enjoying-meal"
+
+SLIDER
+188
+227
+361
+260
+supermarket-visits
+supermarket-visits
+1
+initial-nr-food-outlets
+1.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3631,63 +3644,32 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="dynamic_restocking_status_based_parameters" repetitions="100" runMetricsEveryStep="false">
+  <experiment name="dynamic_status_based_supermarket_changes" repetitions="10" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
-    <metric>count persons with [diet = "meat"]</metric>
-    <metric>count persons with [diet = "fish"]</metric>
-    <metric>count persons with [diet = "vegetarian"]</metric>
-    <metric>count persons with [diet = "vegan"]</metric>
     <metric>count persons with [meal-to-cook = "meat"]</metric>
     <metric>count persons with [meal-to-cook = "fish"]</metric>
     <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
     <metric>count persons with [meal-to-cook = "vegan"]</metric>
-    <metric>meat-sales</metric>
-    <metric>fish-sales</metric>
-    <metric>vegetarian-sales</metric>
-    <metric>vegan-sales</metric>
-    <metric>potatoes-sales</metric>
-    <metric>meat-stock</metric>
-    <metric>fish-stock</metric>
-    <metric>vegetarian-stock</metric>
-    <metric>vegan-stock</metric>
-    <metric>diet-variety-networks</metric>
-    <metric>diet-variety-households</metric>
     <metric>current-seed</metric>
     <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
-    <enumeratedValueSet variable="status-tail">
-      <value value="0.25"/>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="nr-friends" first="0" step="1" last="5"/>
     <enumeratedValueSet variable="supply-demand">
       <value value="&quot;dynamic-restocking&quot;"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers-diet">
-      <value value="&quot;vegan&quot;"/>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="food-outlet-service-area" first="20" step="40" last="60"/>
-    <enumeratedValueSet variable="p-change-animal-protein">
-      <value value="-0.01"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="8"/>
-    <enumeratedValueSet variable="influencers">
-      <value value="&quot;low-status&quot;"/>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="fixed-seed?">
       <value value="false"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="change-plant-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="change-animal-protein?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <steppedValueSet variable="initial-nr-households" first="25" step="75" last="1450"/>
-    <enumeratedValueSet variable="intervention-implementation">
-      <value value="&quot;gradual&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="influencers?">
-      <value value="false"/>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="error?">
       <value value="false"/>
@@ -3695,16 +3677,11 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="meal-selection">
       <value value="&quot;status-based&quot;"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="p-influencers">
-      <value value="0.51"/>
-    </enumeratedValueSet>
     <enumeratedValueSet variable="debug?">
       <value value="false"/>
     </enumeratedValueSet>
     <steppedValueSet variable="initial-nr-food-outlets" first="1" step="2" last="11"/>
-    <enumeratedValueSet variable="p-change-plant-protein">
-      <value value="0.51"/>
-    </enumeratedValueSet>
+    <steppedValueSet variable="supermarket-visits" first="1" step="1" last="8"/>
   </experiment>
 </experiments>
 @#$#@#$#@

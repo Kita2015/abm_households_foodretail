@@ -75,7 +75,6 @@ persons-own [
   network-diet-diversity
   status
   neophobia
-  individualism
   at-home?
   my-supermarket
   sorted-food-outlets
@@ -250,7 +249,6 @@ to setup-persons
     ;set status 0
     set neophobia random-float 1
     ;set neophobia 0
-
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment? false
