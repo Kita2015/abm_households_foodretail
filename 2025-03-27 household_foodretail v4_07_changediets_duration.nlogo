@@ -257,8 +257,8 @@ to setup-persons
     ;set cooking-skills ofat-cooking-skills
     set status random-float 1
     ;set status ofat-status
-    ;set neophobia random-float 1
-    set neophobia ofat-neophobia
+    set neophobia random-float 1
+    ;set neophobia ofat-neophobia
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment? false
@@ -410,7 +410,7 @@ to setup-food-outlets
       let count-a-items table:get stock-table product
       set count-animal-items count-animal-items + count-a-items
       if debug? [
-      show (word "count animal items " count-animal-items)
+        show (word "count animal items " count-animal-items)
       ]
     ]
 
@@ -420,7 +420,6 @@ to setup-food-outlets
     show (word "count plant items " count-plant-items)
     ]
 
-
     let norm-animal-items round ( (count-animal-items / (count-animal-items + count-plant-items )) * 100 )
     let norm-plant-items round ( (count-plant-items / (count-animal-items + count-plant-items )) * 100 )
 
@@ -429,8 +428,14 @@ to setup-food-outlets
 
     set a-p-ratio count-animal-items / count-plant-items
     if debug? [
-        show (word "a-p-ratio: " a-p-ratio " count animal items normalized: " norm-animal-items " count plant items normalized: " norm-plant-items)
-      ]
+    show (word "a-p-ratio: " a-p-ratio " count animal items normalized: " norm-animal-items " count plant items normalized: " norm-plant-items)
+    ]
+
+
+
+
+
+
 
   ]
 
@@ -471,17 +476,19 @@ to go
 
   if ticks = 3650 or error? = true [stop]
 
-  if change-diets? = true or change-inventory? = true and ticks > 730 [
+  if change-diets? = true and ticks > 730 [
+    if debug? [
     print "setting monitor duration + 1"
-    set monitor-duration monitor-duration + 1
+    ]
+  set monitor-duration monitor-duration + 1
   ]
 
   closure-of-tick
 
   ;interventions
   intervention-diets
-  intervention-inventory
-
+  ;change-plant-protein ;executed through check-restocking-tables procedure
+  ;change-animal-protein ;executed through check-restocking-tables procedure
 
   ;start having dinner
   select-group-and-cook
@@ -613,7 +620,10 @@ to intervention-diets
     ifelse monitor-duration = intervention-duration [
       ;the intervention will be terminated
 
+
+      if debug? [
       print "terminating intervention"
+      ]
       set change-diets? false
       ask persons with [openminded? = false ] [
         set openminded? true
@@ -641,6 +651,7 @@ to intervention-diets
             table:put meal-enjoyment-table influencers-diet 1
             set diet influencers-diet
             set openminded? false
+            show (word "Changing my diet to " influencers-diet)
           ]
 
 
@@ -663,6 +674,7 @@ to intervention-diets
               table:put meal-enjoyment-table influencers-diet 1
               set diet influencers-diet
               set openminded? false
+              show (word "Changing my diet to " influencers-diet)
 
             ]
 
@@ -681,6 +693,7 @@ to intervention-diets
               table:put meal-enjoyment-table influencers-diet 1
               set diet influencers-diet
               set openminded? false
+              show (word "Changing my diet to " influencers-diet)
             ]
 
           ]
@@ -690,7 +703,7 @@ to intervention-diets
         )
 
       ]
-      ;if ticks != 730, we are not changing diets
+      ;if influencers = true but ticks != 730, we are not changing diets
       [
         ;do nothing
       ]
@@ -703,143 +716,200 @@ to intervention-diets
 
 end
 
-to intervention-inventory
+to change-plant-protein
 
 
 
-   ifelse change-inventory? = false [
-    ; do not run this procedure
-  ]
 
-  ;if change-inventory? = true
-  [
 
-    ifelse monitor-duration = intervention-duration [
-      ;the intervention will be terminated
+      if debug? [
+      show (word "Changing plant protein stock! at tick " ticks)
+      ]
 
-      print "terminating intervention"
-      set change-inventory? false
-      set supply-demand "dynamic-restocking"
-       print "set supply-demand to dynamic restocking"
+      let sustainable-foods []
+        set sustainable-foods (list "vegan")
 
-    ]
+        ;update sustainable stocks
+        foreach sustainable-foods [ food-item ->
 
-    ;if the intervention duration has not passed yet, proceed with the intervention
-    [
+          let current-stock table:get initial-stock-table food-item
 
-      ifelse ticks = 730 [
-        print "set supply-demand to static restocking"
-        set supply-demand "static-restocking"
+          if current-stock = 0 and p-change-plant-protein > 0 [
 
-        ;plant-share-slider is user-specified and results in adjustment of the animal and plant ratios
-        set plant-share plant-share-slider
-        print (word "plant-share " plant-share)
-        set animal-share (100 - plant-share-slider)
-        print (word "animal-share " animal-share)
+            ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
+            let assortment-change round ((business-orientation * potential-costumers * p-change-plant-protein))
 
-        ;retrieve total-stocks from globals
+            if debug? [
+              show (word "before change plant proteins if current stock = 0, our initial stock table " initial-stock-table)
+            ]
+            table:put initial-stock-table food-item round assortment-change
 
-        ask food-outlets [
+            table:put stock-table food-item table:get initial-stock-table food-item
 
-          let total-count-items 0
-
-          ;each food outlet sums his total product items
-          foreach diets-list [diets ->
-            let count-items table:get stock-table diets
-            set total-count-items total-count-items + count-items
-            ;if debug? [
-              show (word "total count items: " diets " " total-count-items)
-            ;]
+            if debug? [
+              show (word "after change plant proteins if current stock = 0, our new initial stock table "  initial-stock-table)
+            ]
           ]
 
-          ;each food outlet calculates his own animal:plant ratio
-
-          let product-fraction-table table:make
-
-          foreach diets-list [diets ->
-            table:put product-fraction-table diets 0
-            show (word "product fraction table: empty " product-fraction-table)
-          ]
-
-          foreach diets-list [diets ->
-            let count-product table:get stock-table diets
-            let product-fraction count-product / total-count-items
-            table:put product-fraction-table diets product-fraction
-            show (word "product fraction table filled: " product-fraction-table)
-          ]
-
-          ;determine fractions for animal and plant  sources
-      let animal-list ["meat" "fish" "vegetarian"]
-          let animal-fraction 0
-          foreach animal-list [source ->
-            let product-fraction table:get product-fraction-table source
-            set animal-fraction animal-fraction + product-fraction
-            show (word "animal-fraction " animal-fraction)
-          ]
-
-          let plant-fraction table:get product-fraction-table "vegan"
-          show (word "plant-fraction " plant-fraction)
 
 
-          ;adjust the fractions of each protein source based on the user-specfied plant-share-slider
+        if current-stock = 0 and p-change-plant-protein < 0 [
 
-
-          let delta-ratio-animal round (((animal-share / 100 )- animal-fraction))
-          show (word "delta-ratio-animal " delta-ratio-animal)
-          let delta-ratio-plant round (((plant-share / 100) - plant-fraction))
-            show(word "delta-ratio-plant " delta-ratio-plant)
-
-          show (word "Stock table BEFORE adjusting:  "  stock-table)
-
-          ;adjust animal protein sources in the initial stock table
-          foreach animal-list [source ->
-            let current-nr-items table:get stock-table source
-            show (word "current nr items " source " " current-nr-items)
-            let change-nr-items (current-nr-items * delta-ratio-animal)
-            show (word "change-nr-items " source " " change-nr-items)
-            let new-nr-items current-nr-items + change-nr-items
-            show (word "new nr of items " source " " new-nr-items)
-            table:put initial-stock-table  source round (new-nr-items )
-          ]
-
-            let current-nr-items table:get stock-table "vegan"
-            let change-nr-items (current-nr-items * delta-ratio-plant)
-            let new-nr-items current-nr-items + change-nr-items
-            table:put initial-stock-table  "vegan" round (new-nr-items  )
-
-           show (word "Initial stock table AFTER adjusting:  "  initial-stock-table)
-
-
-;          let fraction-animal-items round ( (count-animal-items / (count-animal-items + count-plant-items ))  )
-;          let fraction-plant-items round (count-plant-items / (count-animal-items + count-plant-items ))
-;
-
-
-;
-;
-
-
-          ;set animal-share norm-animal-items
-          ;set plant-share norm-plant-items
-
-          ;set a-p-ratio count-animal-items / count-plant-items
-
-
-
-
+          ;if the food outlet did not sell vegetarian and vegan before it will not reduce selling these products.
+          ;do nothing
         ]
+
+
+        if current-stock != 0
+        [
+          ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+
+          if debug? [
+            show (word "before change plant proteins if current stock != 0, our initial stock table " initial-stock-table)
+          ]
+
+          let assortment-change round ((business-orientation * current-stock * p-change-plant-protein) )
+
+          if debug? [
+          show (word food-item " change plant protein assortment-change " assortment-change)
+          ]
+          let new-assortment (current-stock + assortment-change)
+          ifelse new-assortment > 0 [
+            table:put initial-stock-table food-item new-assortment
+            table:put stock-table food-item table:get initial-stock-table food-item
+            if debug? [
+              show (word "after change plant proteins if we sold vega(n) before, our new initial stock table" initial-stock-table)
+            ]
+          ]
+
+
+              ;if new-assortment < 0 ;the product will be set to 0, meaning it is not available
+              [
+                table:put initial-stock-table food-item 0
+                table:put stock-table food-item 0
+                if debug? [
+                show (word "after change plant proteins preventing negative stock, our initial stock table "  initial-stock-table)
+                ]
+              ]
+
+            ]
+
+
+
+      ;update labels of food outlet
+
+      let current-product-selection []
+      foreach diets-list [ diets ->
+        let current-availability table:get stock-table diets
+
+        ifelse current-availability != 0 [
+          set current-product-selection lput diets current-product-selection
+        ]
+        ;if the product is not offered
+        [
+          ;do nothing
+        ]
+      ]
+
+        set label (list potential-costumers current-product-selection)
+        set product-selection current-product-selection
+        set nr-protein-sources length product-selection
       ]
 
 
 
-          ;if ticks != 730, we are not changing  inventory
-          [
+end
+
+to change-animal-protein
+
+
+
+      let unsustainable-foods []
+
+      set unsustainable-foods (list "meat" "fish" "vegetarian")
+
+        ;update sustainable stocks
+        foreach unsustainable-foods [ food-item ->
+
+          let current-stock table:get initial-stock-table food-item
+
+          if current-stock = 0 and p-change-animal-protein > 0 [
+
+            ;if the food outlet did not sell vegetarian and vegan before it will now start selling some products
+            let assortment-change (business-orientation * potential-costumers * p-change-animal-protein)
+            table:put initial-stock-table food-item round (assortment-change)
+            table:put stock-table food-item table:get initial-stock-table food-item
+
+            ;if debug? [
+              show (word "after change animal proteins if current stock = 0, tick" ticks initial-stock-table)
+            ;]
+          ]
+
+
+          if current-stock = 0 and p-change-animal-protein < 0 [
+
+            ;if the food outlet did not sell vegetarian and vegan before it will still not sell these products.
             ;do nothing
           ]
 
 
-    ]
-  ]
+            if current-stock != 0
+            [
+          ;the food outlet has sold vegetarian and vegan before and will adjust the quantities of these products
+          ;    let assortment-change round ( (business-orientation * potential-costumers * p-change-animal-protein) )
+          let assortment-change round ( (business-orientation * current-stock * p-change-animal-protein) )
+          if debug? [
+            show (word food-item " change animal protein assortment-change " assortment-change)
+          ]
+          let new-assortment (current-stock + assortment-change)
+              ifelse new-assortment > 0 [
+                table:put initial-stock-table food-item new-assortment
+                table:put stock-table food-item table:get initial-stock-table food-item
+                if debug? [
+                show (word "after change animal proteins if we sold vega(n) before, tick" ticks initial-stock-table)
+                ]
+              ]
+
+              ;ifelse new-assortment < 0 the product will be set to 0, meaning it is not available
+              [
+                table:put initial-stock-table food-item 0
+                table:put stock-table food-item 0
+                if debug? [
+                show (word "after change animal proteins preventing negative stock, tick" ticks initial-stock-table)
+                ]
+              ]
+
+            ]
+          ]
+
+
+
+
+
+        ;update labels of food outlet
+
+          let current-product-selection []
+          foreach diets-list [ diets ->
+            let current-availability table:get stock-table diets
+
+            ifelse current-availability != 0 [
+              set current-product-selection lput diets current-product-selection
+            ]
+            ;if the product is not offered
+            [
+              ;do nothing
+            ]
+      ]
+      if debug? [
+        show (word "changing label to " current-product-selection)
+      ]
+
+      set label (list potential-costumers current-product-selection)
+      set product-selection current-product-selection
+      set nr-protein-sources length product-selection
+
+
+
 
 
 
@@ -1923,7 +1993,54 @@ to check-restocking-tables
 
         ]
 
+        ;if one of the interventions to change the animal or protein stocks has been activated, apply these changes immediately after the restocking, so the intervention is applied to the most recent stocks
 
+        ;ifelse intervention-implementation = "sudden"
+        ;[
+          ;intervention only occurs once at the first restocking day after 2 years
+          ifelse change-plant-protein? = true and ticks > 730 and ticks < 730 + restocking-frequency [
+            change-plant-protein
+            show (word "We are changing plant protein stock at " ticks)
+          ]
+
+          ;if ticks != 730, do nothing
+          [
+            ;we are not changing the assortment
+          ]
+
+          ifelse change-animal-protein? = true and ticks > 730 and ticks < 730 + restocking-frequency [
+            show (word "We are changing animal protein stocks at " ticks)
+            change-animal-protein
+          ]
+          ;if ticks != 730, we are not changing the assortment
+          [
+            ;do nothing
+          ]
+        ;]
+
+        ;if intervention-implementation = "gradual"
+        ;[
+          ;intervention occurs at every restocking day after 2 years
+
+          ifelse change-plant-protein? = true and ticks > 730 [
+            change-plant-protein
+            show (word "We are changing plant protein stock at " ticks)
+          ]
+
+          ;if ticks != 730, do nothing
+          [
+            ;we are not changing the assortment
+          ]
+
+          ifelse change-animal-protein? = true and ticks > 730 [
+            show (word "We are changing animal protein stocks at " ticks)
+            change-animal-protein
+          ]
+          ;if ticks != 730, we are not changing the assortment
+          [
+            ;do nothing
+          ]
+        ;]
 
 
         if debug? [
@@ -1938,7 +2055,9 @@ to check-restocking-tables
     ]
   ]
 
-
+  if debug? [
+    ;show (word "Empty shelves table: " empty-shelves-table)
+  ]
 
 
   ;check empty shelves
@@ -2593,7 +2712,7 @@ INPUTBOX
 163
 697
 current-seed
--7.55482653E8
+-2.0371782E8
 1
 0
 Number
@@ -2605,7 +2724,7 @@ SWITCH
 671
 fixed-seed?
 fixed-seed?
-0
+1
 1
 -1000
 
@@ -2885,7 +3004,7 @@ CHOOSER
 influencers
 influencers
 "random" "high-status" "low-status"
-2
+1
 
 SLIDER
 5
@@ -2919,20 +3038,61 @@ SWITCH
 497
 change-diets?
 change-diets?
-1
+0
 1
 -1000
 
 SWITCH
 8
 360
-186
+181
 393
-change-inventory?
-change-inventory?
+change-plant-protein?
+change-plant-protein?
 1
 1
 -1000
+
+SLIDER
+9
+397
+182
+430
+p-change-plant-protein
+p-change-plant-protein
+-1
+1
+0.75
+0.01
+1
+NIL
+HORIZONTAL
+
+SWITCH
+185
+359
+363
+392
+change-animal-protein?
+change-animal-protein?
+1
+1
+-1000
+
+SLIDER
+184
+397
+362
+430
+p-change-animal-protein
+p-change-animal-protein
+-0.25
+0.25
+-0.01
+0.001
+1
+NIL
+HORIZONTAL
 
 PLOT
 413
@@ -3171,10 +3331,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-197
-360
-280
-405
+186
+444
+269
+489
 animal-share
 animal-share
 0
@@ -3190,17 +3350,17 @@ intervention-duration
 intervention-duration
 1
 730
-7.0
+180.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-284
-360
-359
-405
+279
+443
+354
+488
 plant-share
 plant-share
 0
@@ -3217,21 +3377,6 @@ monitor-duration
 0
 1
 11
-
-SLIDER
-7
-401
-179
-434
-plant-share-slider
-plant-share-slider
-0
-100
-80.0
-1
-1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3702,6 +3847,66 @@ NetLogo 6.4.0
       <value value="6"/>
     </enumeratedValueSet>
     <steppedValueSet variable="ofat-neophobia" first="0" step="0.1" last="1"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_lowstatus" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="7"/>
+      <value value="30"/>
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;low-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
   </experiment>
 </experiments>
 @#$#@#$#@

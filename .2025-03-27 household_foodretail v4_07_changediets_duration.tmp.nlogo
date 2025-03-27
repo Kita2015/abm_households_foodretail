@@ -257,8 +257,8 @@ to setup-persons
     ;set cooking-skills ofat-cooking-skills
     set status random-float 1
     ;set status ofat-status
-    ;set neophobia random-float 1
-    set neophobia ofat-neophobia
+    set neophobia random-float 1
+    ;set neophobia ofat-neophobia
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment? false
@@ -409,12 +409,16 @@ to setup-food-outlets
   foreach animal-list [product ->
       let count-a-items table:get stock-table product
       set count-animal-items count-animal-items + count-a-items
-      show (word "count animal items " count-animal-items)
+      if debug? [
+        show (word "count animal items " count-animal-items)
+      ]
     ]
 
     let count-p-items table:get stock-table "vegan"
     set count-plant-items count-plant-items + count-p-items
+    if debug? [
     show (word "count plant items " count-plant-items)
+    ]
 
     let norm-animal-items round ( (count-animal-items / (count-animal-items + count-plant-items )) * 100 )
     let norm-plant-items round ( (count-plant-items / (count-animal-items + count-plant-items )) * 100 )
@@ -423,7 +427,9 @@ to setup-food-outlets
     set plant-share norm-plant-items
 
     set a-p-ratio count-animal-items / count-plant-items
+    if debug? [
     show (word "a-p-ratio: " a-p-ratio " count animal items normalized: " norm-animal-items " count plant items normalized: " norm-plant-items)
+    ]
 
 
 
@@ -471,7 +477,9 @@ to go
   if ticks = 3650 or error? = true [stop]
 
   if change-diets? = true and ticks > 730 [
-          print "setting monitor duration + 1"
+    if debug? [
+    print "setting monitor duration + 1"
+    ]
   set monitor-duration monitor-duration + 1
   ]
 
@@ -602,27 +610,37 @@ end
 
 to intervention-diets
 
-  ifelse monitor-duration = intervention-duration [
-     ;the intervention will be terminated
+  ifelse change-diets? = false [
+    ; do not run this procedure
+  ]
 
-print "terminating intervention"
-    set change-diets? false
-    ask persons with [openminded? = false ] [
-      set openminded? true
+  ;if change-diets? = true
+  [
+
+    ifelse monitor-duration = intervention-duration [
+      ;the intervention will be terminated
+
+
+      if debug? [
+      print "terminating intervention"
+      ]
+      set change-diets? false
+      ask persons with [openminded? = false ] [
+        set openminded? true
+
+      ]
 
     ]
 
-  ]
+    ;if the intervention duration has not passed yet, proceed with the intervention
+    [
 
-  ;if the intervention duration has not passed yet, proceed with the intervention
-  [
-
-  ifelse ticks = 730 [
+      ifelse ticks = 730 [
 
 
 
 
-      (ifelse influencers = "random" [
+        (ifelse influencers = "random" [
 
           let count-persons count persons
           let nr-influencers p-influencers * count-persons
@@ -630,62 +648,66 @@ print "terminating intervention"
 
 
           ask influencers-group [
-        table:put meal-enjoyment-table influencers-diet 1
-        set diet influencers-diet
-          set openminded? false
-      ]
-
-
-
-        ]
-
-      influencers = "low-status" [
-
-        let low-status-persons persons with [status <= status-tail]
-
-        let count-low-status-persons count low-status-persons
-        print count-low-status-persons
-        let nr-influencers p-influencers * count-low-status-persons
-        print nr-influencers
-        let influencers-group n-of nr-influencers low-status-persons
-        print influencers-group
-
-
-        ask influencers-group [
-          table:put meal-enjoyment-table influencers-diet 1
-          set diet influencers-diet
-            set openminded? false
-
-        ]
-
-
-      ]
-
-
-
-        influencers = "high-status" [
-          let high-status-persons persons with [status >= status-tail]
-          let count-high-status-persons count high-status-persons
-          let nr-influencers p-influencers * count-high-status-persons
-          let influencers-group n-of nr-influencers high-status-persons
-
-          ask influencers-group [
             table:put meal-enjoyment-table influencers-diet 1
             set diet influencers-diet
             set openminded? false
+            show (word "Changing my diet to " influencers-diet)
           ]
 
-        ]
 
-        ;if something goes wrong
-        [print "The model was not able to use influencers to change dietary preference of part of the population"]
-      )
 
-  ]
-  ;if influencers = true but ticks != 730, we are not changing diets
-  [
-    ;do nothing
-  ]
+          ]
+
+          influencers = "low-status" [
+
+            let low-status-persons persons with [status <= status-tail]
+
+            let count-low-status-persons count low-status-persons
+            print count-low-status-persons
+            let nr-influencers p-influencers * count-low-status-persons
+            print nr-influencers
+            let influencers-group n-of nr-influencers low-status-persons
+            print influencers-group
+
+
+            ask influencers-group [
+              table:put meal-enjoyment-table influencers-diet 1
+              set diet influencers-diet
+              set openminded? false
+              show (word "Changing my diet to " influencers-diet)
+
+            ]
+
+
+          ]
+
+
+
+          influencers = "high-status" [
+            let high-status-persons persons with [status >= status-tail]
+            let count-high-status-persons count high-status-persons
+            let nr-influencers p-influencers * count-high-status-persons
+            let influencers-group n-of nr-influencers high-status-persons
+
+            ask influencers-group [
+              table:put meal-enjoyment-table influencers-diet 1
+              set diet influencers-diet
+              set openminded? false
+              show (word "Changing my diet to " influencers-diet)
+            ]
+
+          ]
+
+          ;if something goes wrong
+          [print "The model was not able to use influencers to change dietary preference of part of the population"]
+        )
+
+      ]
+      ;if influencers = true but ticks != 730, we are not changing diets
+      [
+        ;do nothing
+      ]
+    ]
   ]
 
 
@@ -2690,7 +2712,7 @@ INPUTBOX
 163
 697
 current-seed
-9.69630295E8
+-2.0371782E8
 1
 0
 Number
@@ -2993,7 +3015,7 @@ p-influencers
 p-influencers
 0
 1
-0.5
+0.1
 0.01
 1
 NIL
@@ -3007,7 +3029,7 @@ CHOOSER
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-3
+2
 
 SWITCH
 9
@@ -3016,7 +3038,7 @@ SWITCH
 497
 change-diets?
 change-diets?
-1
+0
 1
 -1000
 
@@ -3328,7 +3350,7 @@ intervention-duration
 intervention-duration
 1
 730
-7.0
+180.0
 1
 1
 NIL
@@ -3825,6 +3847,66 @@ NetLogo 6.4.0
       <value value="6"/>
     </enumeratedValueSet>
     <steppedValueSet variable="ofat-neophobia" first="0" step="0.1" last="1"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_lowstatus" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="7"/>
+      <value value="30"/>
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;low-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
   </experiment>
 </experiments>
 @#$#@#$#@
