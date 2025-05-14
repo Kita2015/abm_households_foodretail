@@ -3908,6 +3908,492 @@ NetLogo 6.4.0
     </enumeratedValueSet>
     <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
   </experiment>
+  <experiment name="dynamic_status_based_change_diets_highstatus" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="7"/>
+      <value value="30"/>
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;high-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_random" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="7"/>
+      <value value="30"/>
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;random&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_lowstatus_extraduration" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="1"/>
+      <value value="3"/>
+      <value value="14"/>
+      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;low-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_highstatus_extraduration" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="1"/>
+      <value value="3"/>
+      <value value="14"/>
+      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;high-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_random_extraduration" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="1"/>
+      <value value="3"/>
+      <value value="14"/>
+      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;random&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_lowstatus_extraduration2" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="360"/>
+      <value value="1080"/>
+      <value value="1825"/>
+      <value value="2920"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;low-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_highstatus_extraduration2" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="360"/>
+      <value value="1080"/>
+      <value value="1825"/>
+      <value value="2920"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;high-status&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
+  <experiment name="dynamic_status_based_change_diets_random_extraduration2" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="intervention-duration">
+      <value value="360"/>
+      <value value="1080"/>
+      <value value="1825"/>
+      <value value="2920"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers">
+      <value value="&quot;random&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="p-influencers" first="0.1" step="0.1" last="0.5"/>
+  </experiment>
 </experiments>
 @#$#@#$#@
 @#$#@#$#@

@@ -251,8 +251,8 @@ to setup-persons
     ;set cooking-skills ofat-cooking-skills
     set status random-float 1
     ;set status ofat-status
-    ;set neophobia random-float 1
-    set neophobia ofat-neophobia
+    set neophobia random-float 1
+    ;set neophobia ofat-neophobia
     set my-last-dinner "none"
     set last-meals-quality "none"
     set last-meal-enjoyment? false
@@ -3839,6 +3839,144 @@ NetLogo 6.4.0
       <value value="6"/>
     </enumeratedValueSet>
     <steppedValueSet variable="ofat-neophobia" first="0" step="0.1" last="1"/>
+  </experiment>
+  <experiment name="dynamic_status_based_socialstatus" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>percentage-eating-in</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="ofat-status" first="0" step="0.5" last="1"/>
+  </experiment>
+  <experiment name="dynamic_random_socialstatus" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>percentage-eating-in</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;random&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="ofat-status" first="0" step="0.5" last="1"/>
+  </experiment>
+  <experiment name="dynamic_status_based_bau" repetitions="25" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-sales</metric>
+    <metric>fish-sales</metric>
+    <metric>vegetarian-sales</metric>
+    <metric>vegan-sales</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>percentage-eating-in</metric>
+    <metric>percentage-enjoying-meal</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
   </experiment>
 </experiments>
 @#$#@#$#@
