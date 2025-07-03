@@ -164,7 +164,8 @@ to setup-globals
   set report-saved-sales-table table:make
   set report-delta-sales-table table:make
   set business-duration-list []
-  set meal-quality-variance 0.1 ;hard-coded 10% standard deviation of a cook's cooking skills
+  ;set meal-quality-variance 0.1 ;hard-coded 10% standard deviation of a cook's cooking skills
+  set meal-quality-variance ofat-meal-variety
 
   foreach diets-list [ diets ->
     table:put report-sales-table diets 0
@@ -247,8 +248,8 @@ to setup-persons
     set shopping-list []
     set meal-to-cook "none"
     set failed-meal "none"
-    set cooking-skills random-float 1
-    ;set cooking-skills ofat-cooking-skills
+    ;set cooking-skills random-float 1
+    set cooking-skills ofat-cooking-skills
     set status random-float 1
     ;set status ofat-status
     set neophobia random-float 1
@@ -2731,7 +2732,7 @@ INPUTBOX
 163
 697
 current-seed
-2.29959631E8
+1.486716784E9
 1
 0
 Number
@@ -3370,6 +3371,21 @@ a-p-ratio
 1
 11
 
+SLIDER
+355
+321
+527
+354
+ofat-meal-variety
+ofat-meal-variety
+0
+1
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
 @#$#@#$#@
 ## WHAT IS IT?
 
@@ -3798,7 +3814,7 @@ NetLogo 6.4.0
     </enumeratedValueSet>
     <steppedValueSet variable="ofat-cooking-skills" first="0" step="0.1" last="1"/>
   </experiment>
-  <experiment name="dynamic_status_based_neophobia" repetitions="10" runMetricsEveryStep="false">
+  <experiment name="dynamic_status_based_mealvariety_cookingskills" repetitions="10" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count persons with [meal-to-cook = "meat"]</metric>
@@ -3806,6 +3822,7 @@ NetLogo 6.4.0
     <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
     <metric>count persons with [meal-to-cook = "vegan"]</metric>
     <metric>percentage-eating-in</metric>
+    <metric>percentage-enjoying-meal</metric>
     <metric>current-seed</metric>
     <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
     <enumeratedValueSet variable="nr-friends">
@@ -3838,7 +3855,8 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="initial-nr-food-outlets">
       <value value="6"/>
     </enumeratedValueSet>
-    <steppedValueSet variable="ofat-neophobia" first="0" step="0.1" last="1"/>
+    <steppedValueSet variable="ofat-meal-variety" first="0" step="0.1" last="0.5"/>
+    <steppedValueSet variable="ofat-cooking-skills" first="0" step="0.2" last="1"/>
   </experiment>
   <experiment name="dynamic_status_based_socialstatus" repetitions="10" runMetricsEveryStep="false">
     <setup>setup</setup>
