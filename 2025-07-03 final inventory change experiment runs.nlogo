@@ -3543,7 +3543,7 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="dynamic_status_based_inventory_extraduration" repetitions="20" runMetricsEveryStep="false">
+  <experiment name="inventory_change" repetitions="20" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count persons with [meal-to-cook = "meat"]</metric>

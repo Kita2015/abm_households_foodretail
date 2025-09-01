@@ -213,19 +213,15 @@ to setup-households
 
   ]
 
-  ;check: no more than one house per patch
-  ;  ask patches with [count households-here > 1] [
-  ;    error "more than one house here!"
-  ;  ]
 end
 
 to setup-persons
   ask persons [
-    ;set age random-normal 41 25 ; mean and sd are chosen based on Dutch demographic data
     set shape "person"
     set color pink
     set meal-enjoyment-table table:make
-    set diet first rnd:weighted-one-of-list weighted-diets-list [ [p] -> last p ]
+    ;set diet first rnd:weighted-one-of-list weighted-diets-list [ [p] -> last p ]
+    set diet one-of diets-list
     set openminded? true
 
 
@@ -481,6 +477,9 @@ to go
   ;interventions
   intervention-diets
   intervention-inventory
+
+  ;sensitivity analysis testing
+  sensitivity-analysis-status
 
 
   ;start having dinner
@@ -807,6 +806,35 @@ to intervention-inventory
 
 
 end
+
+to sensitivity-analysis-status
+
+ ifelse ticks = 730 [
+
+  ifelse status-experiment = true [
+
+
+
+  let experiment-group persons with [diet = influencers-diet]
+    ask experiment-group [
+      set status test-status
+    ]
+
+  ]
+
+  ;otherwise
+  [
+    ;do nothing
+  ]
+  ]
+
+  ;before year 2:
+  [
+    ;do nothing
+  ]
+
+end
+
 
 
 
@@ -2360,6 +2388,47 @@ to-report total-stocks
   report all-stocks
 end
 
+;; high and low status groups per dietary preference ;;
+
+to-report high-status-meat
+  let hsm-group count persons with [diet = "meat" and status > 0.75]
+  report hsm-group
+end
+
+to-report low-status-meat
+  let lsm-group count persons with [diet = "meat" and status < 0.25]
+  report lsm-group
+end
+
+to-report high-status-fish
+  let hsf-group count persons with [diet = "fish" and status > 0.75]
+  report hsf-group
+end
+
+to-report low-status-fish
+  let lsf-group count persons with [diet = "fish" and status < 0.25]
+  report lsf-group
+end
+
+to-report high-status-vegetarian
+  let hsvt-group count persons with [diet = "vegetarian" and status > 0.75]
+  report hsvt-group
+end
+
+to-report low-status-vegetarian
+  let lsvt-group count persons with [diet = "vegetarian" and status < 0.25]
+  report lsvt-group
+end
+
+to-report high-status-vegan
+  let hsvn-group count persons with [diet = "vegan" and status > 0.75]
+  report hsvn-group
+end
+
+to-report low-status-vegan
+  let lsvn-group count persons with [diet = "vegan" and status < 0.25]
+  report lsvn-group
+end
 
 ;; relative change in meals cooked ;;
 
@@ -2556,7 +2625,7 @@ INPUTBOX
 163
 697
 current-seed
-8.8599175E7
+-8.5635192E7
 1
 0
 Number
@@ -2859,7 +2928,7 @@ p-influencers
 p-influencers
 0
 1
-0.1
+1.0
 0.01
 1
 NIL
@@ -2873,7 +2942,7 @@ CHOOSER
 influencers-diet
 influencers-diet
 "meat" "fish" "vegetarian" "vegan"
-2
+3
 
 SWITCH
 9
@@ -3063,7 +3132,7 @@ status-tail
 status-tail
 0
 0.5
-0.25
+0.5
 0.01
 1
 NIL
@@ -3171,10 +3240,10 @@ plant-share
 11
 
 MONITOR
-229
-310
-335
-355
+228
+307
+334
+352
 monitor-duration
 monitor-duration
 0
@@ -3192,6 +3261,32 @@ plant-share-slider
 100
 60.0
 1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+210
+416
+358
+449
+status-experiment
+status-experiment
+0
+1
+-1000
+
+SLIDER
+209
+453
+381
+486
+test-status
+test-status
+0
+1
+1.0
+0.01
 1
 NIL
 HORIZONTAL
@@ -3543,7 +3638,7 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="dynamic_status_based_inventory_extraduration" repetitions="20" runMetricsEveryStep="false">
+  <experiment name="status_sensitivity_analysis_meat" repetitions="20" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count persons with [meal-to-cook = "meat"]</metric>
@@ -3595,22 +3690,260 @@ NetLogo 6.4.0
     <enumeratedValueSet variable="initial-nr-food-outlets">
       <value value="6"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="intervention-duration">
-      <value value="30"/>
-      <value value="360"/>
-      <value value="1825"/>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="false"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="plant-share-slider">
-      <value value="10"/>
+    <enumeratedValueSet variable="change-inventory?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-experiment">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="test-status">
+      <value value="0"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;meat&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-influencers">
+      <value value="0.1"/>
+      <value value="0.4"/>
+      <value value="0.6"/>
+      <value value="0.9"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="status_sensitivity_analysis_fish" repetitions="20" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>meat-sales</metric>
+    <metric>fish-sales</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
       <value value="40"/>
-      <value value="60"/>
-      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="change-diets?">
       <value value="false"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="change-inventory?">
       <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-experiment">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="test-status">
+      <value value="0"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;fish&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-influencers">
+      <value value="0.1"/>
+      <value value="0.4"/>
+      <value value="0.6"/>
+      <value value="0.9"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="status_sensitivity_analysis_vegetarian" repetitions="20" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>meat-sales</metric>
+    <metric>fish-sales</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-inventory?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-experiment">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="test-status">
+      <value value="0"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegetarian&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-influencers">
+      <value value="0.1"/>
+      <value value="0.4"/>
+      <value value="0.6"/>
+      <value value="0.9"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="status_sensitivity_analysis_vegen" repetitions="20" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>count persons with [diet = "meat"]</metric>
+    <metric>count persons with [diet = "fish"]</metric>
+    <metric>count persons with [diet = "vegetarian"]</metric>
+    <metric>count persons with [diet = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>meat-sales</metric>
+    <metric>fish-sales</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <metric>high-status-meat</metric>
+    <metric>low-status-meat</metric>
+    <metric>high-status-fish</metric>
+    <metric>low-status-fish</metric>
+    <metric>high-status-vegetarian</metric>
+    <metric>low-status-vegetarian</metric>
+    <metric>high-status-vegan</metric>
+    <metric>low-status-vegan</metric>
+    <runMetricsCondition>ticks mod 365 = 0</runMetricsCondition>
+    <enumeratedValueSet variable="nr-friends">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="restocking-frequency">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-food-outlets">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-inventory?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="status-experiment">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="test-status">
+      <value value="0"/>
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="influencers-diet">
+      <value value="&quot;vegan&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="p-influencers">
+      <value value="0.1"/>
+      <value value="0.4"/>
+      <value value="0.6"/>
+      <value value="0.9"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
