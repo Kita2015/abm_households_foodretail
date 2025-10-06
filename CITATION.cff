@@ -1,0 +1,49 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  MEET-eaters. An agent-based model to study the interaction
+  between food retail supply and household demand.
+message: Please cite this software using these metadata.
+type: software
+authors:
+  - given-names: Christa
+    family-names: Blokhuis
+    email: christa.blokhuis@wur.nl
+    name-particle: Christa
+    affiliation: Wageningen University
+    orcid: 'https://orcid.org/0000-0003-3775-5768'
+  - given-names: Gary
+    family-names: Polhill
+    email: gary.polhill@hutton.ac.uk
+    affiliation: James Hutton Institute
+    orcid: 'https://orcid.org/0000-0002-8596-0590'
+  - given-names: Gert Jan
+    family-names: Hofstede
+    email: gertjan.hofstede@wur.nl
+    affiliation: Wageningen University
+    orcid: 'https://orcid.org/0000-0001-6100-4660'
+repository-code: 'https://github.com/Kita2015/abm_households_foodretail'
+abstract: >-
+  MEET-eaters is an agent-based modelling framework designed
+  to explore the dynamics between food retail supply and
+  household demand. The model simulates the interaction
+  between food supply and household demand under three
+  setups: infinite, static and dynamic supply. Collective
+  dinner choices are based on either social status or
+  majority. Two interventions were tested, targeting either
+  dietary preference or supply. Model development and
+  assumptions were discussed and validated with experts to
+  enhance model acceptance and understanding. MEET-eaters
+  has been developed for the cultural and economical context
+  of the Netherlands. 
+keywords:
+  - protein transition
+  - food retail supply
+  - household demand
+  - agent-based model
+license: GPL-3.0
+commit: uploaded default version
+version: v05
+date-released: '2025-10-06'
