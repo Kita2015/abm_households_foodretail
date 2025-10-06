@@ -19,11 +19,6 @@ authors:
     email: gary.polhill@hutton.ac.uk
     affiliation: James Hutton Institute
     orcid: 'https://orcid.org/0000-0002-8596-0590'
-  - given-names: Gert Jan
-    family-names: Hofstede
-    email: gertjan.hofstede@wur.nl
-    affiliation: Wageningen University
-    orcid: 'https://orcid.org/0000-0001-6100-4660'
 repository-code: 'https://github.com/Kita2015/abm_households_foodretail'
 abstract: >-
   MEET-eaters is an agent-based modelling framework designed
