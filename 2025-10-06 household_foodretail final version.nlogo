@@ -2556,7 +2556,7 @@ INPUTBOX
 163
 697
 current-seed
-8.8599175E7
+-1.46565655E8
 1
 0
 Number
@@ -3611,6 +3611,52 @@ NetLogo 6.4.0
     </enumeratedValueSet>
     <enumeratedValueSet variable="change-inventory?">
       <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="pawn_safe" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count persons with [meal-to-cook = "meat"]</metric>
+    <metric>count persons with [meal-to-cook = "fish"]</metric>
+    <metric>count persons with [meal-to-cook = "vegetarian"]</metric>
+    <metric>count persons with [meal-to-cook = "vegan"]</metric>
+    <metric>meat-stock</metric>
+    <metric>fish-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>vegetarian-stock</metric>
+    <metric>vegan-stock</metric>
+    <metric>status-distribution</metric>
+    <metric>current-seed</metric>
+    <steppedValueSet variable="nr-friends" first="1" step="1" last="5"/>
+    <enumeratedValueSet variable="supply-demand">
+      <value value="&quot;dynamic-restocking&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-outlet-service-area">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="restocking-frequency" first="1" step="1" last="5"/>
+    <enumeratedValueSet variable="fixed-seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-nr-households">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meal-selection">
+      <value value="&quot;status-based&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="debug?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="initial-nr-food-outlets" first="1" step="1" last="5"/>
+    <enumeratedValueSet variable="change-diets?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="change-inventory?">
+      <value value="false"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
